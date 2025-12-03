@@ -1,0 +1,158 @@
+/* =========================================================
+   SUNRAISE INDUSTRIES — THEME COLORS (Prefixed)
+========================================================= */
+
+:root {
+    /* Brand Colors */
+    --sunraise-color-primary: #1E4D8D;
+    --sunraise-color-primary-dark: #173E74;
+    --sunraise-color-orange: #F28C28;
+    --sunraise-color-orange-dark: #D67720;
+
+    /* Secondary Colors */
+    --sunraise-color-navy: #0F2F5A;
+    --sunraise-color-light-blue: #5FA6D6;
+    --sunraise-color-soft-orange: #F7B774;
+
+    /* Neutral Colors */
+    --sunraise-color-white: #FFFFFF;
+    --sunraise-color-black: #1A1A1A;
+    --sunraise-color-muted: #8AA7C4;
+    --sunraise-color-border: #E2E8F0;
+    --sunraise-color-bg-light: #F4F7FB;
+
+    /* Light Mode Theme */
+    --sunraise-bg-body: var(--sunraise-color-bg-light);
+    --sunraise-bg-card: var(--sunraise-color-white);
+    --sunraise-bg-header: var(--sunraise-color-white);
+    --sunraise-bg-footer: var(--sunraise-color-navy);
+
+    --sunraise-text-heading: var(--sunraise-color-primary);
+    --sunraise-text-body: var(--sunraise-color-black);
+    --sunraise-text-muted: var(--sunraise-color-muted);
+
+    --sunraise-button-primary-bg: var(--sunraise-color-primary);
+    --sunraise-button-primary-text: var(--sunraise-color-white);
+    --sunraise-button-primary-hover: var(--sunraise-color-primary-dark);
+
+    --sunraise-button-accent-bg: var(--sunraise-color-orange);
+    --sunraise-button-accent-text: var(--sunraise-color-white);
+    --sunraise-button-accent-hover: var(--sunraise-color-orange-dark);
+
+    --sunraise-input-bg: var(--sunraise-color-white);
+    --sunraise-input-border: #C8D6E5;
+    --sunraise-input-focus: var(--sunraise-color-primary);
+
+    --sunraise-shadow: rgba(0, 0, 0, 0.06);
+}
+
+/* =========================================================
+   DARK MODE THEME (Prefixed)
+========================================================= */
+
+[data-theme="dark"] {
+    --sunraise-bg-body: #0B1627;
+    --sunraise-bg-card: #152238;
+    --sunraise-bg-header: #0F1B2E;
+    --sunraise-bg-footer: #0A1324;
+
+    --sunraise-text-heading: #E2ECF8;
+    --sunraise-text-body: #D3DEED;
+    --sunraise-text-muted: #8BA3C5;
+
+    --sunraise-button-primary-bg: var(--sunraise-color-primary);
+    --sunraise-button-primary-text: #FFFFFF;
+    --sunraise-button-primary-hover: #295A9D;
+
+    --sunraise-button-accent-bg: var(--sunraise-color-orange);
+    --sunraise-button-accent-text: #1A1A1A;
+    --sunraise-button-accent-hover: var(--sunraise-color-orange-dark);
+
+    --sunraise-input-bg: #1C2A40;
+    --sunraise-input-border: #3B4F66;
+    --sunraise-input-focus: var(--sunraise-color-light-blue);
+
+    --sunraise-shadow: rgba(0, 0, 0, 0.35);
+}
+
+/* =========================================================
+   EXAMPLE USAGE (Prefixed)
+========================================================= */
+
+body {
+    background: var(--sunraise-bg-body);
+    color: var(--sunraise-text-body);
+}
+
+.card {
+    background: var(--sunraise-bg-card);
+    border: 1px solid var(--sunraise-color-border);
+    box-shadow: 0 2px 6px var(--sunraise-shadow);
+}
+
+.btn-primary {
+    background: var(--sunraise-button-primary-bg);
+    color: var(--sunraise-button-primary-text);
+}
+.btn-primary:hover {
+    background: var(--sunraise-button-primary-hover);
+}
+
+.btn-accent {
+    background: var(--sunraise-button-accent-bg);
+    color: var(--sunraise-button-accent-text);
+}
+.btn-accent:hover {
+    background: var(--sunraise-button-accent-hover);
+}
+
+
+/* =========================================================
+   UNIVERSAL THEME VARIABLE ALIASES (SUNRAISE)
+========================================================= */
+
+:root {
+    --theme-bg-body: var(--sunraise-bg-body);
+    --theme-bg-card: var(--sunraise-bg-card);
+    --theme-bg-header: var(--sunraise-bg-header);
+    --theme-bg-footer: var(--sunraise-bg-footer);
+
+    --theme-text-heading: var(--sunraise-text-heading);
+    --theme-text-body: var(--sunraise-text-body);
+    --theme-text-muted: var(--sunraise-text-muted);
+
+    --theme-border: var(--sunraise-color-border);
+
+    --theme-button-primary-bg: var(--sunraise-button-primary-bg);
+    --theme-button-primary-text: var(--sunraise-button-primary-text);
+    --theme-button-primary-hover: var(--sunraise-button-primary-hover);
+
+    --theme-input-bg: var(--sunraise-input-bg);
+    --theme-input-border: var(--sunraise-input-border);
+    --theme-input-focus: var(--sunraise-input-focus);
+
+    --theme-shadow: var(--sunraise-shadow);
+}
+
+[data-theme="dark"] {
+    --theme-bg-body: var(--sunraise-bg-body);
+    --theme-bg-card: var(--sunraise-bg-card);
+    --theme-bg-header: var(--sunraise-bg-header);
+    --theme-bg-footer: var(--sunraise-bg-footer);
+
+    --theme-text-heading: var(--sunraise-text-heading);
+    --theme-text-body: var(--sunraise-text-body);
+    --theme-text-muted: var(--sunraise-text-muted);
+
+    --theme-border: var(--sunraise-color-border);
+
+    --theme-button-primary-bg: var(--sunraise-button-primary-bg);
+    --theme-button-primary-text: var(--sunraise-button-primary-text);
+    --theme-button-primary-hover: var(--sunraise-button-primary-hover);
+
+    --theme-input-bg: var(--sunraise-input-bg);
+    --theme-input-border: var(--sunraise-input-border);
+    --theme-input-focus: var(--sunraise-input-focus);
+
+    --theme-shadow: var(--sunraise-shadow);
+}

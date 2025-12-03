@@ -1,0 +1,171 @@
+    /* =========================================================
+    ARHAM RENEWTECH — THEME COLORS + GRADIENTS (Prefixed)
+    ========================================================= */
+
+    :root {
+        /* Brand Colors */
+        --arham-color-yellow: #F4B221;
+        --arham-color-yellow-dark: #D9991D;
+
+        --arham-color-blue: #1F628B;
+        --arham-color-blue-dark: #174B6B;
+
+        --arham-color-navy: #0D3A5B;
+
+        /* Neutral Colors */
+        --arham-white: #FFFFFF;
+        --arham-black: #1A1A1A;
+        --arham-muted: #7E9BB2;
+        --arham-border: #E3E8EF;
+        --arham-bg-light: #F7FAFC;
+
+        /* Light Mode Theme */
+        --arham-bg-body: var(--arham-bg-light);
+        --arham-bg-card: var(--arham-white);
+        --arham-bg-header: var(--arham-white);
+        --arham-bg-footer: var(--arham-navy);
+
+        --arham-text-heading: var(--arham-color-blue);
+        --arham-text-body: var(--arham-black);
+        --arham-text-muted: var(--arham-muted);
+
+        /* Buttons */
+        --arham-button-primary-bg: var(--arham-color-blue);
+        --arham-button-primary-text: var(--arham-white);
+        --arham-button-primary-hover: var(--arham-color-blue-dark);
+
+        --arham-button-accent-bg: var(--arham-color-yellow);
+        --arham-button-accent-text: var(--arham-black);
+        --arham-button-accent-hover: var(--arham-color-yellow-dark);
+
+        /* Inputs */
+        --arham-input-bg: var(--arham-white);
+        --arham-input-border: #CBD5E1;
+        --arham-input-focus: var(--arham-color-blue);
+
+        /* Shadows */
+        --arham-shadow: rgba(0, 0, 0, 0.06);
+
+        /* =====================================================
+        GRADIENT VARIABLES
+        ===================================================== */
+
+        /* Bright Sun – Yellow */
+        --arham-gradient-yellow: linear-gradient(135deg, #F4B221, #F7D483);
+
+        /* Deep Solar Panel */
+        --arham-gradient-blue: linear-gradient(135deg, #1F628B, #0D3A5B);
+
+        /* Identity Gradient (Yellow → Blue) */
+        --arham-gradient-brand: linear-gradient(135deg, #F4B221, #1F628B);
+
+        /* Soft Renewable Glow */
+        --arham-gradient-soft: linear-gradient(135deg, #F7D483, #1F628B);
+
+        /* Button gradient option */
+        --arham-gradient-button: linear-gradient(135deg, #1F628B, #174B6B);
+    }
+
+    /* =========================================================
+    DARK MODE THEME
+    ========================================================= */
+
+    [data-theme="dark"] {
+        --arham-bg-body: #0B1623;
+        --arham-bg-card: #152230;
+        --arham-bg-header: #101C2A;
+        --arham-bg-footer: #0A1623;
+
+        --arham-text-heading: #E1ECF5;
+        --arham-text-body: #CCDAE6;
+        --arham-text-muted: #8EA5B9;
+
+        --arham-button-primary-bg: var(--arham-color-blue);
+        --arham-button-primary-text: #FFFFFF;
+        --arham-button-primary-hover: #2C749F;
+
+        --arham-button-accent-bg: var(--arham-color-yellow);
+        --arham-button-accent-text: #1A1A1A;
+        --arham-button-accent-hover: var(--arham-color-yellow-dark);
+
+        --arham-input-bg: #1B2937;
+        --arham-input-border: #36485A;
+        --arham-input-focus: var(--arham-color-blue);
+
+        --arham-shadow: rgba(0, 0, 0, 0.35);
+
+        /* Dark Mode Gradients */
+        --arham-gradient-yellow: linear-gradient(135deg, #D9991D, #F4B221);
+        --arham-gradient-blue: linear-gradient(135deg, #174B6B, #0D3A5B);
+        --arham-gradient-brand: linear-gradient(135deg, #D9991D, #1F628B);
+        --arham-gradient-soft: linear-gradient(135deg, #C8A86B, #0D3A5B);
+        --arham-gradient-button: linear-gradient(135deg, #1F628B, #0D3A5B);
+    }
+
+    /* =========================================================
+    USAGE EXAMPLES
+    ========================================================= */
+
+    .btn-gradient {
+        background: var(--arham-gradient-brand);
+        color: white;
+    }
+
+    .header-gradient {
+        background: var(--arham-gradient-blue);
+    }
+
+    .card-highlight {
+        background: var(--arham-gradient-soft);
+    }
+
+
+    /* =========================================================
+   UNIVERSAL THEME VARIABLE ALIASES (ARHAM)
+========================================================= */
+
+:root {
+    --theme-bg-body: var(--arham-bg-body);
+    --theme-bg-card: var(--arham-bg-card);
+    --theme-bg-header: var(--arham-bg-header);
+    --theme-bg-footer: var(--arham-footer);
+
+    --theme-text-heading: var(--arham-text-heading);
+    --theme-text-body: var(--arham-text-body);
+    --theme-text-muted: var(--arham-text-muted);
+
+    --theme-border: var(--arham-border);
+
+    --theme-button-primary-bg: var(--arham-button-primary-bg);
+    --theme-button-primary-text: var(--arham-button-primary-text);
+    --theme-button-primary-hover: var(--arham-button-primary-hover);
+
+    --theme-input-bg: var(--arham-input-bg);
+    --theme-input-border: var(--arham-input-border);
+    --theme-input-focus: var(--arham-input-focus);
+
+    --theme-shadow: var(--arham-shadow);
+}
+
+[data-theme="dark"] {
+    --theme-bg-body: var(--arham-bg-body);
+    --theme-bg-card: var(--arham-bg-card);
+    --theme-bg-header: var(--arham-bg-header);
+    --theme-bg-footer: var(--arham-bg-footer);
+
+    --theme-text-heading: var(--arham-text-heading);
+    --theme-text-body: var(--arham-text-body);
+    --theme-text-muted: var(--arham-text-muted);
+
+    --theme-border: var(--arham-border);
+
+    --theme-button-primary-bg: var(--arham-button-primary-bg);
+    --theme-button-primary-text: var(--arham-button-primary-text);
+    --theme-button-primary-hover: var(--arham-button-primary-hover);
+
+    --theme-input-bg: var(--arham-input-bg);
+    --theme-input-border: var(--arham-input-border);
+    --theme-input-focus: var(--arham-input-focus);
+
+    --theme-shadow: var(--arham-shadow);
+}
