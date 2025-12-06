@@ -136,22 +136,25 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/ajax', [QuoteRequestController::class, 'ajaxList']);
             Route::get('/create', [QuoteRequestController::class, 'create'])->name('quote_requests.create');
             Route::post('/', [QuoteRequestController::class, 'store'])->name('quote_requests.store');
+            Route::post('/delete', [QuoteRequestController::class, 'delete'])->name('quote_requests.delete');
+            Route::get('/api/view/{id}', [QuoteRequestController::class, 'apiView'])->name('quote_requests.apiView');
             Route::get('/{id}/edit', [QuoteRequestController::class, 'edit'])->name('quote_requests.edit');
             Route::post('/{id}', [QuoteRequestController::class, 'update'])->name('quote_requests.update');
-            Route::post('/delete', [QuoteRequestController::class, 'delete'])->name('quote_requests.delete');
 
             Route::get('/{id}/view', [QuoteRequestController::class, 'view'])->name('quote_requests.view');
             Route::get('/{id}/view-json', [QuoteRequestController::class, 'viewJson'])->name('quote_requests.view.json');
 
             Route::post('/{id}/status', [QuoteRequestController::class, 'updateStatus'])->name('quote_requests.status');
+            Route::post('/{id}/quote-master', [QuoteRequestController::class, 'updateQuoteMaster'])->name('quote_requests.quote_master');
             Route::post('/{id}/assign', [QuoteRequestController::class, 'assign'])->name('quote_requests.assign');
             Route::post('/{id}/send-mail', [QuoteRequestController::class, 'sendMail'])->name('quote_requests.send');
-            Route::post('/{id}/convert-to-lead', function ($id) {
-                // simple closure that calls controller helper
-                return app(\App\Http\Controllers\QuoteRequestController::class)->createLeadIfNotExists(\App\Models\QuoteRequest::findOrFail($id))
-                    ? response()->json(['status' => true, 'message' => 'Converted'])
-                    : response()->json(['status' => false, 'message' => 'Failed'], 500);
-            });
+            Route::post('/{id}/convert-to-lead', [QuoteRequestController::class, 'createLeadIfMissing'])->name('quote_requests.convert');
+            // Route::post('/{id}/convert-to-lead', function ($id) {
+            //     // simple closure that calls controller helper
+            //     return app(\App\Http\Controllers\QuoteRequestController::class)->createLeadIfMissing(\App\Models\QuoteRequest::findOrFail($id))
+            //         ? response()->json(['status' => true, 'message' => 'Converted'])
+            //         : response()->json(['status' => false, 'message' => 'Failed'], 500);
+            // });
             Route::get('/export', [QuoteRequestController::class, 'export'])->name('quote_requests.export');
             Route::post('/import', [QuoteRequestController::class, 'import'])->name('quote_requests.import');
         });
@@ -193,18 +196,19 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/ajax', [LeadController::class, 'ajaxList'])->name('marketing.ajax');
         Route::get('/create', [LeadController::class, 'create'])->name('marketing.create');
         Route::post('/store', [LeadController::class, 'store'])->name('marketing.store');
+        Route::post('/delete', [LeadController::class, 'delete'])->name('marketing.delete');
+        Route::get('/export', [LeadController::class, 'export'])->name('marketing.export');
+        Route::post('/import', [LeadController::class, 'import'])->name('marketing.import');
+
+        // Route::get('kanban', [\App\Http\Controllers\LeadController::class, 'kanban'])->name('leads.kanban');
+        // Route::post('{lead}/move', [\App\Http\Controllers\LeadController::class, 'move'])->name('leads.move');
         Route::get('/{id}/view', [LeadController::class, 'view'])->name('marketing.view');
         Route::get('/{id}/view-json', [LeadController::class, 'viewJson'])->name('marketing.view.json');
         Route::get('/{id}/edit', [LeadController::class, 'edit'])->name('marketing.edit');
         Route::post('/{id}/update', [LeadController::class, 'update'])->name('marketing.update');
         Route::post('/{id}/status', [LeadController::class, 'updateStatus'])->name('marketing.status');
         Route::post('/{id}/assign', [LeadController::class, 'assign'])->name('marketing.assign');
-        Route::post('/delete', [LeadController::class, 'delete'])->name('marketing.delete');
-        Route::get('/export', [LeadController::class, 'export'])->name('marketing.export');
-        Route::post('/import', [LeadController::class, 'import'])->name('marketing.import');
-
-        Route::get('kanban', [\App\Http\Controllers\LeadController::class, 'kanban'])->name('leads.kanban');
-        Route::post('{lead}/move', [\App\Http\Controllers\LeadController::class, 'move'])->name('leads.move');
+        Route::post('/{id}/create-project', [LeadController::class, 'createProjectFromLead'])->name('lead.createProject');
 
     });
 
@@ -219,7 +223,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/detach/{id}', [DocumentController::class, 'detach'])->name('detach');
         Route::get('/export', [DocumentController::class, 'export'])->name('export');
     });
+
     Route::get('/ajax/projects/search', [DocumentController::class, 'searchProjects'])->name('search.projects');
+    
     Route::prefix('customers')->group(function () {
         Route::get('/', [CustomerController::class, 'index'])->name('customers.index');
         Route::get('/ajax', [CustomerController::class, 'ajax'])->name('customers.ajax');
@@ -258,6 +264,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/invoices/create', [InvoiceController::class,'create'])->name('invoices.create');
         Route::post('/invoices', [InvoiceController::class,'store'])->name('invoices.store');
         Route::get('/invoices/{id}', [InvoiceController::class,'show'])->name('invoices.show');
+        Route::get('/invoices/{id}/view-json', [InvoiceController::class,'viewJson'])->name('invoices.show');
         Route::get('/invoices/{id}/edit', [InvoiceController::class,'edit'])->name('invoices.edit');
         Route::post('/invoices/{id}', [InvoiceController::class,'update'])->name('invoices.update');
         Route::delete('/invoices/{id}', [InvoiceController::class,'destroy'])->name('invoices.destroy');
@@ -306,16 +313,6 @@ Route::middleware(['auth'])->group(function () {
 
 });
 
-// Route::apiResource('quote-request', QuoteRequestController::class);
-// Route::apiResource('quote-master', QuoteMasterController::class);
-Route::apiResource('project-logs', ProjectLogController::class);
-Route::apiResource('documents', DocumentController::class);
-Route::apiResource('permission', PermissionController::class);
-Route::apiResource('marketing-log', MarketingLogController::class);
-// Route::apiResource('marketing-data', MarketingDataController::class);
-Route::apiResource('session-logs', SessionLogsController::class);
-Route::apiResource('setting', SettingsController::class);
-// Route::apiResource('users', UserController::class);
 Route::get('/', function () {
     return view('welcome');
 });

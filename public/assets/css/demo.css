@@ -13,7 +13,10 @@ nav#fixed-navbar{
     backdrop-filter: blur(7.5px) !important;
 }
 @media (min-width: 991px) {
-    aside#layout-menu,
+    #fixed-navbar{
+        padding-left: 16.25rem !important;
+    }
+    /* aside#layout-menu, */
     div.content-wrapper{
         margin-top: 64px !important;
     }

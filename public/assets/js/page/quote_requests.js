@@ -53,7 +53,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const res = await fetch(`/quote/requests/ajax?` + params.toString(), { credentials: 'same-origin' });
         const json = await res.json();
-        console.log("json", json);
 
         renderTable(json.data || json, json.users || {});
         renderPagination(json);
@@ -85,20 +84,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // render rows
     function renderTable(payload, marketingUsers) {
         let rows = payload.data || payload;
-        console.log(payload);
-
         let html = "";
         rows.forEach((r, idx) => {
             const idxNum = r.id;
             const typeLabel = r.type ? r.type.toUpperCase() : '—';
-            const assigned = r.assigned_to_name ?? (r.assigned_to ? r.assigned_to : '—');
             const created = new Date(r.created_at).toLocaleString();
 
             html += `<tr data-row-id="${r.id}">
                 <td>${idxNum}</td>
                 <td>${typeLabel}</td>
-                <td>${escapeHtml(r.name ?? '')}</td>
-                <td>${escapeHtml(r.number ?? '')}</td>
+                <td>${escapeHtml(r.customer.name ?? '')}</td>
+                <td>${escapeHtml(r.customer.mobile ?? '')}</td>
                 <td>${escapeHtml(r.module ?? '')} ${r.kw ? '/ ' + r.kw + 'kW' : ''}</td>
                 <td>${getAssigneeDropdown(r, marketingUsers)}</td>
                 <td>
@@ -161,60 +157,71 @@ document.addEventListener("DOMContentLoaded", () => {
         const json = await fetchJson(`/quote/requests/${id}/view-json`);
         populateModal(json);
     }
-function renderHistory(history) {
-    const container = document.getElementById('modal-history');
-    if (!container) return;
+    function renderHistory(history) {
+        const container = document.getElementById('modal-history');
+        if (!container) return;
 
-    if (history.length === 0) {
-        container.innerHTML = `<div class="text-muted small">No history available.</div>`;
-        return;
-    }
+        if (history.length === 0) {
+            container.innerHTML = `<div class="text-muted small">No history available.</div>`;
+            return;
+        }
 
-    let html = "";
+        let html = "";
 
-    history.forEach(h => {
-        html += `
+        history.forEach(h => {
+            html += `
             <div class="timeline-entry">
                 <strong>${h.action}</strong><br>
                 ${h.message}<br>
                 <small>${h.datetime} — by ${h.user}</small>
             </div>
         `;
-    });
+        });
 
-    container.innerHTML = html;
-}
+        container.innerHTML = html;
+    }
 
     function populateModal(data) {
-    if (!data) return;
+        if (!data) return;
+        
+        const row = data.data;      // main record
+        const history = data.history || [];
 
-    const row = data.data;      // main record
-    const history = data.history || [];
+        document.getElementById('modal-id').textContent = row.id;
+        document.getElementById('modal-type').textContent = (row.type || '—').toUpperCase();
+        document.getElementById('modal-name').textContent = row.customer.name || '—';
+        document.getElementById('modal-number').textContent = row.customer.mobile || '—';
+        document.getElementById('modal-email').textContent = row.customer.email || '—';
+        document.getElementById('modal-module').textContent = row.module || '—';
+        document.getElementById('modal-kw').textContent = row.kw || '—';
+        document.getElementById('modal-mc').textContent = row.mc || '—';
+        document.getElementById('modal-status').textContent = (window.__QR_STATUS || {})[row.status] ?? row.status;
+        document.getElementById('modal-assigned').textContent = row.assigned_user.fname + " " + row.assigned_user.lname ?? '—';
+        document.getElementById('modal-notes').textContent = row.notes || '—';
 
-    document.getElementById('modal-id').textContent = row.id;
-    document.getElementById('modal-type').textContent = (row.type || '—').toUpperCase();
-    document.getElementById('modal-name').textContent = row.name || '—';
-    document.getElementById('modal-number').textContent = row.number || '—';
-    document.getElementById('modal-email').textContent = row.email || '—';
-    document.getElementById('modal-module').textContent = row.module || '—';
-    document.getElementById('modal-kw').textContent = row.kw || '—';
-    document.getElementById('modal-mc').textContent = row.mc || '—';
-    document.getElementById('modal-status').textContent = (window.__QR_STATUS || {})[row.status] ?? row.status;
-    document.getElementById('modal-assigned').textContent = row.assigned_to_name ?? '—';
-    document.getElementById('modal-notes').textContent = row.notes || '—';
+        // Quote-only info
+        document.getElementById('quote-fields').style.display = row.type === 'quote' ? '' : 'none';
+        const select = document.getElementById("quote_master_id");
 
-    // Quote-only info
-    document.getElementById('quote-fields').style.display = row.type === 'quote' ? 'block' : 'none';
+        Object.entries(data.master).forEach(([key, value]) => {
+            const opt = document.createElement("option");
+            opt.value = key;
+            if(row.quote_master_id == opt.value){
+                opt.selected = true;
+            }
+            opt.textContent = value;
+            select.appendChild(opt);
+        });
+        // Buttons
+        document.getElementById('modal-send-mail').onclick = () => sendMail(row.id);
+        document.getElementById('modal-convert-lead').onclick = () => convertToLead(row.id);
+        document.getElementById('quote_master_id').onchange = (e) => changeQuoteMaster(row.id,e.target.value);
 
-    // Buttons
-    document.getElementById('modal-send-mail').onclick = () => sendMail(row.id);
-    document.getElementById('modal-convert-lead').onclick = () => convertToLead(row.id);
+        // 🔥 Render History
+        renderHistory(history);
 
-    // 🔥 Render History
-    renderHistory(history);
-
-    modalEl.show();
-}
+        modalEl.show();
+    }
 
 
     async function sendMail(id) {
@@ -275,6 +282,23 @@ function renderHistory(history) {
         if (json.status) {
             // optionally notify
             loadData();
+        } else {
+            alert('Update failed');
+        }
+    }
+
+    async function changeQuoteMaster(id,quote_master_id) {
+        if (!quote_master_id) return;
+        const res = await fetch(`/quote/requests/${id}/quote-master`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': TOKEN },
+            body: JSON.stringify({ quote_master_id })
+        });
+        const json = await res.json();
+        if (json.status) {
+            // optionally notify
+            alert('Updated!');
+            // loadData();
         } else {
             alert('Update failed');
         }

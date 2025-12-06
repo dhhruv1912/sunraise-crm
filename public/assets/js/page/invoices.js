@@ -27,7 +27,8 @@ async function loadList(page = 1) {
       <td>${formatAmount(inv.balance)}</td>
       <td>${inv.status}</td>
       <td>
-         <a class="btn btn-sm btn-outline-primary" href="/billing/invoices/${inv.id}">View</a>
+         <a class="btn btn-sm btn-outline-primary" href="/billing/invoices/${inv.id}/edit">View</a>
+         <button class="btn btn-sm btn-outline-primary" data-id="${inv.id}" onClick=(deleteInvoice(${inv.id}))>Delete</a>
       </td>
     `;
     tbody.appendChild(tr);
@@ -36,6 +37,20 @@ async function loadList(page = 1) {
   renderPagination(json);
 }
 
+  async function deleteInvoice(id) {
+    if (!confirm("Delete?")) return;
+
+    const res = await fetch("/billing/invoices/"+id, {
+        method: "DELETE",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": TOKEN
+        },
+        body: JSON.stringify({ id })
+    });
+
+    loadList();
+}
 function renderPagination(json) {
   const ul = document.getElementById('pagination');
   ul.innerHTML = '';

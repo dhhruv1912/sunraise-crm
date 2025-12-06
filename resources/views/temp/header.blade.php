@@ -1,23 +1,14 @@
-<nav id="fixed-navbar" class="navbar navbar-expand-md navbar-dark fixed-top">
+<nav id="fixed-navbar" class="navbar navbar-expand-md navbar-dark fixed-top h-px-50">
     <div class="container-fluid">
 
         <!-- Brand -->
-        <div class="app-brand demo">
+        {{-- <div class="app-brand demo d-lg-none">
             <a href="{{ url('/') }}" class="app-brand-link">
-                <span class="app-brand-logo demo me-1">
-                    <span style="color: var(--bs-primary)">
-                        {{-- @include('temp.logo') Move SVG to separate file --}}
-                    </span>
-                </span>
-                <span class="app-brand-text demo menu-text fw-semibold ms-2">Materio</span>
+                <img src="{{ asset('assets/img/logo/logo.png') }}" alt="" class="h-px-40">
             </a>
-
-            {{-- <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto">
-                <i class="mdi menu-toggle-icon d-xl-block align-middle mdi-20px"></i>
-            </a> --}}
-            {{-- <button id="mobile-menu-toggle" class="btn btn-sm btn-primary d-lg-none">
-                <i class="tf-icons bx bx-menu"></i>
-            </button> --}}
+        </div> --}}
+        <div class="d-lg-none">
+            @include('temp.company')
         </div>
 
         <!-- Mobile toggle -->
@@ -36,7 +27,9 @@
                     {{-- <input type="text" id="globalSearch" class="form-control" placeholder="Search customer / project / lead">
                     <div id="globalSearchResults" class="search-results"></div> --}}
                     <div class="global-search-box">
-                        <input id="globalSearchInput" class="form-control" placeholder="Search customer, lead, project...">
+                        <i class="icon-base ri ri-search-line icon-lg lh-0"></i>
+                        <input id="globalSearchInput" type="text" class="form-control border-0 shadow-none bg-transparent" placeholder="Search..." aria-label="Search...">
+                        {{-- <input class="form-control" placeholder="Search customer, lead, project..."> --}}
                         <div id="globalSearchResults" class="search-dropdown"></div>
                     </div>
                 </div>

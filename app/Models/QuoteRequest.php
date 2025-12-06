@@ -13,15 +13,14 @@ class QuoteRequest extends Model
 
     protected $fillable = [
         'type',
-        'name',
-        'number',
-        'email',
+        'customer_id',
         'module',
         'kw',
         'mc',
         'budget',
         'status',
         'assigned_to',
+        'quote_master_id',
         'created_by',
         'notes',
         'source',
@@ -79,6 +78,16 @@ class QuoteRequest extends Model
     public function quotations()
     {
         return $this->hasMany(Quotation::class, 'quote_request_id');
+    }
+
+    public function quote()
+    {
+        return $this->belongsTo(QuoteMaster::class, 'quote_master_id');
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'customer_id');
     }
 
     public function history()

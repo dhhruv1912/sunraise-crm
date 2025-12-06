@@ -1,5 +1,5 @@
 <div class="modal fade" id="leadViewModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
     <div class="modal-content">
 
       <div class="modal-header">
@@ -42,7 +42,10 @@
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-warning" id="modal-convert-project">Convert to Project</button>
+        {{-- <button class="btn btn-warning" id="modal-convert-project">Convert to Project</button> --}}
+        <button class="btn btn-success" id="create-project" onclick="createProject()">
+          Convert to Project
+        </button>
         <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
 

@@ -31,6 +31,7 @@
   </div>
 </div>
 @endsection
+{{-- @include('page.quotations.invoices.view_wrapper') --}}
 
 @section('scripts')
 <script>

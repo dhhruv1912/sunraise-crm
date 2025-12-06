@@ -7,7 +7,6 @@
     {{-- Modal for Adding Setting --}}
     @include('page.modal.setting-modal')
 
-    <div class="container-xxl flex-grow-1 container-p-y">
 
         <div class="card">
             <h4 class="card-header">Settings ({{ strtoupper($module) }})</h4>
@@ -30,7 +29,6 @@
             </div>
         </div>
 
-    </div>
 
     <button id="add-setting" class="btn btn-danger floating-btn shadow-danger">
         Add Setting

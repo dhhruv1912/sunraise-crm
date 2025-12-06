@@ -35,16 +35,16 @@ function renderLeadRows(rows) {
         body.innerHTML += `
             <tr>
                 <td>${row.lead_code}</td>
-                <td>${row?.quote_request?.name || '—'}</td>
-                <td>${row?.quote_request?.number || '—'}</td>
+                <td>${row?.customer?.name || '—'}</td>
+                <td>${row?.customer?.mobile || '—'}</td>
 
                 <td>
                     <select class="form-select form-select-sm"
                         onchange="changeStatus(${row.id}, this.value)">
                         ${Object.entries(window.LEAD_STATUS)
-                            .map(([key, label]) =>
-                                `<option value="${key}" ${key === row.status ? 'selected' : ''}>${label}</option>`
-                            ).join('')}
+                .map(([key, label]) =>
+                    `<option value="${key}" ${key === row.status ? 'selected' : ''}>${label}</option>`
+                ).join('')}
                     </select>
                 </td>
 
@@ -53,9 +53,9 @@ function renderLeadRows(rows) {
                         onchange="changeAssigned(${row.id}, this.value)">
                         <option value="">-- None --</option>
                         ${window.allUsers
-                            .map(u =>
-                                `<option value="${u.id}" ${u.id == row.assigned_to ? 'selected' : ''}>${u.fname} ${u.lname}</option>`
-                            ).join('')}
+                .map(u =>
+                    `<option value="${u.id}" ${u.id == row.assigned_to ? 'selected' : ''}>${u.fname} ${u.lname}</option>`
+                ).join('')}
                     </select>
                 </td>
 
@@ -98,20 +98,46 @@ async function changeAssigned(id, assigned_to) {
     });
 }
 
+function renderHistory(history) {
+    const container = document.getElementById('modal-history');
+    if (!container) return;
+
+    if (history.length === 0) {
+        container.innerHTML = `<div class="text-muted small">No history available.</div>`;
+        return;
+    }
+
+    let html = "";
+
+    history.forEach(h => {
+        html += `
+            <div class="timeline-entry">
+                <strong>${h.action}</strong><br>
+                ${h.message}<br>
+                <small>${h.datetime} — by ${h.user}</small>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
 async function viewLead(id) {
     const res = await fetch(`/marketing/${id}/view-json`);
     const data = await res.json();
 
     document.getElementById("modal-id").textContent = data.id;
     document.getElementById("modal-lead-code").textContent = data.lead_code;
-    document.getElementById("modal-name").textContent = data?.quote_request?.name;
-    document.getElementById("modal-number").textContent = data?.quote_request?.number;
-    document.getElementById("modal-email").textContent = data?.quote_request?.email;
-    document.getElementById("modal-assigned").textContent = data?.assignee?.fname + " " + data?.assignee?.lname ?? '—';
+    document.getElementById("modal-name").textContent = data?.customer?.name;
+    document.getElementById("modal-number").textContent = data?.customer?.mobile;
+    document.getElementById("modal-email").textContent = data?.customer?.email;
+    document.getElementById("modal-assigned").textContent = data?.assigned_user?.fname + " " + data?.assigned_user?.lname ?? '—';
     document.getElementById("modal-status").textContent = window.LEAD_STATUS[data.status];
     document.getElementById("modal-remarks").textContent = data.remarks ?? '—';
+    // document.getElementById("create-project").dataset.id = data.id;
 
-    document.getElementById("modal-history").innerHTML = data.history_html;
+    // document.getElementById("modal-history").innerHTML = data.history_html;
+
+    renderHistory(data.history);
 
     new bootstrap.Modal(document.getElementById('leadViewModal')).show();
 }
@@ -126,4 +152,28 @@ async function deleteLead(id) {
     });
 
     loadLeads();
+}
+
+async function createProject() {
+    if (!confirm("Create project from this lead?")) return;
+    leadId = document.getElementById("modal-id").innerHTML
+
+    const res = await fetch(`/marketing/${leadId}/create-project`, {
+        method: "POST",
+        headers: {
+            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+        }
+    });
+
+    const json = await res.json();
+
+    if (!json.status) {
+        alert(json.message);
+        return;
+    }
+
+    alert("Project created successfully!");
+
+    // Redirect to project edit page
+    window.location.href = json.project_url;
 }

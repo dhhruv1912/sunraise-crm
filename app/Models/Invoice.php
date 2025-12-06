@@ -47,6 +47,15 @@ class Invoice extends Model
         'recurring_end_at' => 'date',
     ];
 
+    public const STATUS_LABELS = [
+        'draft' => 'Draft',
+        'sent' => 'Sent',
+        'paid' => 'Paid',
+        'partial' => 'Partial',
+        'overdue' => 'Overdue',
+        'cancelled' => 'Cancelled',
+    ];
+
     /*----------------------------------------
      | Relationships
      ----------------------------------------*/

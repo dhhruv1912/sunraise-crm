@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
             html += `<tr>
                 <td>${row.id}</td>
                 <td>${row.quotation_no}</td>
-                <td>${rq.name || '—'}</td>
+                <td>${rq.customer.name || '—'}</td>
                 <td>${row.base_price ?? '-'}</td>
                 <td>${row.discount ?? '-'}</td>
                 <td>${row.final_price ?? '-'}</td>

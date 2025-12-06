@@ -6,146 +6,116 @@ use App\Models\QuoteMaster;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class QuoteMasterController extends Controller
 {
+    /**
+     * Allowed fields for mass update/import.
+     */
     protected $fields = [
-        'sku','module','kw','module_count','value','taxes',
-        'metering_cost','mcb_ppa','payable','subsidy','projected','meta'
+        'sku','module','kw','module_count',
+        'value','taxes','metering_cost',
+        'mcb_ppa','payable','subsidy','projected','meta'
     ];
 
-    // Main blade
+    /* -------------------------------------------------------
+     | LIST PAGE (Blade)
+     ------------------------------------------------------- */
     public function index()
     {
         return view('page.quote_master.list');
     }
 
-    // AJAX list (JSON paginated)
+    /* -------------------------------------------------------
+     | AJAX LIST (pagination + search)
+     ------------------------------------------------------- */
     public function ajaxList(Request $request)
     {
-        $perPage = (int) $request->get('per_page', 10);
-        $search = $request->get('search', null);
+        $perPage = (int) $request->per_page ?? 20;
 
         $query = QuoteMaster::query();
 
-        if ($search) {
-            $query->where(function($q) use ($search) {
-                $q->where('sku', 'like', "%{$search}%")
-                  ->orWhere('module', 'like', "%{$search}%")
-                  ->orWhere('kw', 'like', "%{$search}%");
+        if ($search = $request->search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('sku', 'like', "%$search%")
+                  ->orWhere('module', 'like', "%$search%")
+                  ->orWhere('kw', 'like', "%$search%");
             });
         }
 
-        $data = $query->orderBy('id', 'desc')->paginate($perPage);
-
-        return response()->json($data);
+        return response()->json(
+            $query->orderBy('id', 'desc')->paginate($perPage)
+        );
     }
 
-    // Create form
+    /* -------------------------------------------------------
+     | CREATE FORM
+     ------------------------------------------------------- */
     public function create()
     {
         return view('page.quote_master.form');
     }
 
-    // Store
+    /* -------------------------------------------------------
+     | STORE
+     ------------------------------------------------------- */
     public function store(Request $request)
     {
-        $rules = [
-            'sku' => 'nullable|string',
-            'module' => 'required|string',
-            'kw' => 'required|numeric',
-            'module_count' => 'required|integer',
-            'value' => 'nullable|numeric',
-            'taxes' => 'nullable|numeric',
-            'metering_cost' => 'nullable|numeric',
-            'mcb_ppa' => 'nullable|numeric',
-            'payable' => 'nullable|numeric',
-            'subsidy' => 'nullable|numeric',
-            'projected' => 'nullable|numeric',
-        ];
+        $data = $this->validatePayload($request);
 
-        $validator = Validator::make($request->all(), $rules);
-        if ($validator->fails()) {
-            return redirect()->back()->withErrors($validator)->withInput();
-        }
-
-        $data = $request->only([
-            'sku','module','kw','module_count','value','taxes',
-            'metering_cost','mcb_ppa','payable','subsidy','projected'
-        ]);
-
-        // Meta handling
-        $meta = $this->buildMetaFromRequest($request);
-        $data['meta'] = $meta;
-
-        // If SKU is empty auto-generate simple one
+        // Auto SKU (if empty)
         if (empty($data['sku'])) {
             $brand = explode(' ', $data['module'])[0] ?? 'MOD';
-            $data['sku'] = strtoupper(Str::slug($brand . '-' . $data['kw'] . '-MC-' . $data['module_count'], '-'));
+            $data['sku'] = strtoupper(
+                Str::slug("{$brand}-{$data['kw']}-MC-{$data['module_count']}", '-')
+            );
         }
+
+        $data['meta'] = $this->buildMetaFromRequest($request);
 
         QuoteMaster::create($data);
 
-        return redirect()->route('quote_master.index')->with('success', 'Quote Master record created successfully.');
+        return redirect()->route('quote_master.index')
+            ->with('success', 'Record created successfully.');
     }
 
-    // Edit form
+    /* -------------------------------------------------------
+     | EDIT FORM
+     ------------------------------------------------------- */
     public function edit($id)
     {
         $data = QuoteMaster::findOrFail($id);
         return view('page.quote_master.form', compact('data'));
     }
 
-    // Update (form)
+    /* -------------------------------------------------------
+     | UPDATE
+     ------------------------------------------------------- */
     public function update(Request $request, $id)
     {
-        $rules = [
-            'sku' => 'nullable|string',
-            'module' => 'required|string',
-            'kw' => 'required|numeric',
-            'module_count' => 'required|integer',
-            'value' => 'nullable|numeric',
-            'taxes' => 'nullable|numeric',
-            'metering_cost' => 'nullable|numeric',
-            'mcb_ppa' => 'nullable|numeric',
-            'payable' => 'nullable|numeric',
-            'subsidy' => 'nullable|numeric',
-            'projected' => 'nullable|numeric',
-        ];
-
-        $validator = Validator::make($request->all(), $rules);
-        if ($validator->fails()) {
-            return redirect()->back()->withErrors($validator)->withInput();
-        }
-
         $record = QuoteMaster::findOrFail($id);
 
-        $data = $request->only([
-            'sku','module','kw','module_count','value','taxes',
-            'metering_cost','mcb_ppa','payable','subsidy','projected'
-        ]);
+        $data = $this->validatePayload($request, $id);
         $data['meta'] = $this->buildMetaFromRequest($request);
 
         $record->update($data);
 
-        return redirect()->route('quote_master.index')->with('success', 'Quote Master record updated successfully.');
+        return redirect()->route('quote_master.index')
+            ->with('success', 'Record updated successfully.');
     }
 
-    // Inline update (AJAX) - accepts partial fields
+    /* -------------------------------------------------------
+     | INLINE UPDATE (AJAX)
+     ------------------------------------------------------- */
     public function updateInline(Request $request, $id)
     {
         $record = QuoteMaster::findOrFail($id);
 
-        // only accept allowed fields
-        $update = $request->only([
-            'sku','module','kw','module_count','value','taxes',
-            'metering_cost','mcb_ppa','payable','subsidy','projected'
-        ]);
+        $update = $request->only($this->fields);
 
-        // if meta was sent as object/map
         if ($request->has('meta')) {
-            $update['meta'] = $request->get('meta');
+            $update['meta'] = $request->meta;
         }
 
         $record->update($update);
@@ -157,108 +127,123 @@ class QuoteMasterController extends Controller
         ]);
     }
 
-    // Delete (AJAX)
+    /* -------------------------------------------------------
+     | DELETE (AJAX)
+     ------------------------------------------------------- */
     public function delete(Request $request)
     {
-        $id = $request->id;
-        QuoteMaster::where('id', $id)->delete();
-
-        return response()->json(['status' => true, 'message' => 'Deleted successfully']);
+        QuoteMaster::where('id', $request->id)->delete();
+        return response()->json(['status' => true, 'message' => 'Deleted']);
     }
 
-    // Export CSV
+    /* -------------------------------------------------------
+     | EXPORT CSV
+     ------------------------------------------------------- */
     public function export()
     {
-        $fileName = "quote_master_export_" . date("Y-m-d") . ".csv";
-        $all = QuoteMaster::all()->toArray();
+        $fileName = 'quote_master_export_' . date('Ymd_His') . '.csv';
+        $rows = QuoteMaster::orderBy('id', 'desc')->get();
 
-        if (empty($all)) {
-            return redirect()->back()->with('error', 'No records to export.');
+        if ($rows->isEmpty()) {
+            return back()->with('error', 'No records to export.');
         }
 
-        $columns = array_keys($all[0]);
+        $columns = array_keys($rows->first()->toArray());
 
-        $callback = function () use ($all, $columns) {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, $columns);
-            foreach ($all as $row) {
-                // ensure meta is json string when exporting
-                if (isset($row['meta']) && is_array($row['meta'])) {
-                    $row['meta'] = json_encode($row['meta']);
+        $response = new StreamedResponse(function () use ($rows, $columns) {
+            $h = fopen('php://output', 'w');
+            fputcsv($h, $columns);
+
+            foreach ($rows as $r) {
+                $arr = $r->toArray();
+                if (is_array($arr['meta'])) {
+                    $arr['meta'] = json_encode($arr['meta']);
                 }
-                fputcsv($file, $row);
+                fputcsv($h, $arr);
             }
-            fclose($file);
-        };
 
-        $headers = [
-            "Content-type" => "text/csv",
-            "Content-Disposition" => "attachment; filename={$fileName}",
-        ];
+            fclose($h);
+        });
 
-        return response()->stream($callback, 200, $headers);
+        $response->headers->set('Content-Type', 'text/csv');
+        $response->headers->set('Content-Disposition', "attachment; filename=$fileName");
+
+        return $response;
     }
 
-    // Import CSV -> updateOrCreate by SKU (updates values)
+    /* -------------------------------------------------------
+     | IMPORT CSV
+     ------------------------------------------------------- */
     public function import(Request $request)
     {
-        if (!$request->hasFile('file')) {
-            return redirect()->back()->with('error', 'Please upload a CSV file.');
+        if (! $request->hasFile('file')) {
+            return back()->with('error', 'Upload a CSV file.');
         }
 
-        $file = fopen($request->file('file')->getRealPath(), 'r');
-        $header = fgetcsv($file);
+        $fp = fopen($request->file('file')->getRealPath(), 'r');
+        $header = fgetcsv($fp);
 
-        if (!$header) {
-            return redirect()->back()->with('error', 'Invalid CSV.');
-        }
-
-        while ($row = fgetcsv($file)) {
+        while ($row = fgetcsv($fp)) {
             $rowData = array_combine($header, $row);
 
-            // normalize keys to model fields
             $payload = [];
             foreach ($this->fields as $f) {
                 if (isset($rowData[$f])) {
-                    // meta keep as JSON decode if provided
-                    if ($f === 'meta' && !empty($rowData[$f])) {
-                        $payload[$f] = json_decode($rowData[$f], true) ?? null;
-                    } else {
-                        $payload[$f] = $rowData[$f];
-                    }
+                    $payload[$f] = ($f === 'meta')
+                        ? json_decode($rowData[$f], true)
+                        : $rowData[$f];
                 }
             }
 
-            if (!empty($payload['sku'])) {
+            if (! empty($payload['sku'])) {
                 QuoteMaster::updateOrCreate(['sku' => $payload['sku']], $payload);
             } else {
-                // if no SKU, create new
                 QuoteMaster::create($payload);
             }
         }
 
-        fclose($file);
+        fclose($fp);
 
-        return redirect()->back()->with('success', 'Import completed.');
+        return back()->with('success', 'Import completed.');
     }
 
-    // helper to build meta from arrays in request
+    /* -------------------------------------------------------
+     | VALIDATION HELPER
+     ------------------------------------------------------- */
+    protected function validatePayload(Request $request, $id = null)
+    {
+        return $request->validate([
+            'sku' => 'nullable|string',
+            'module' => 'required|string',
+            'kw' => 'required|numeric',
+            'module_count' => 'required|integer',
+            'value' => 'nullable|numeric',
+            'taxes' => 'nullable|numeric',
+            'metering_cost' => 'nullable|numeric',
+            'mcb_ppa' => 'nullable|numeric',
+            'payable' => 'nullable|numeric',
+            'subsidy' => 'nullable|numeric',
+            'projected' => 'nullable|numeric',
+        ]);
+    }
+
+    /* -------------------------------------------------------
+     | META BUILDER
+     ------------------------------------------------------- */
     protected function buildMetaFromRequest(Request $request)
     {
-        $meta = null;
         $keys = $request->input('meta_key', []);
         $vals = $request->input('meta_value', []);
-        if (is_array($keys) && count($keys)) {
-            $metaArr = [];
-            foreach ($keys as $i => $k) {
-                $key = trim($k);
-                $val = $vals[$i] ?? null;
-                if ($key !== '') {
-                    $metaArr[$key] = $val;
-                }
+
+        $meta = [];
+        foreach ($keys as $i => $k) {
+            $k = trim($k);
+            $v = $vals[$i] ?? null;
+            if ($k !== '') {
+                $meta[$k] = $v;
             }
-            $meta = $metaArr;
         }
-        return $meta;
+
+        return $meta ?: null;
     }
 }

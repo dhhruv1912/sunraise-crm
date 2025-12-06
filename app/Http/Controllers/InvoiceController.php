@@ -2,127 +2,204 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
-use App\Models\QuoteMaster;
 use App\Models\Project;
+use App\Models\QuoteMaster;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use Barryvdh\DomPDF\Facade\Pdf; // dompdf facade
-use Symfony\Component\HttpFoundation\StreamedResponse;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class InvoiceController extends Controller
 {
-    // list page
+    /* ---------------------------------------------------------
+     | LIST PAGE
+     --------------------------------------------------------- */
     public function index()
     {
-        return view('page.quotations.invoices.list');
+        return view('page.quotations.invoices.list', [
+            'statuses' => Invoice::STATUS_LABELS,
+        ]);
     }
 
-    // AJAX list for datatable/pagination
+    /* ---------------------------------------------------------
+     | AJAX LIST
+     --------------------------------------------------------- */
     public function ajaxList(Request $request)
     {
-        $perPage = (int)$request->get('per_page', 20);
-        $q = Invoice::with(['project','lead','creator']);
+        $perPage = (int) $request->get('per_page', 20);
 
-        if ($search = $request->get('search')) {
-            $q->where(function($qq) use ($search) {
-                $qq->where('invoice_no', 'like', "%{$search}%")
-                   ->orWhere('notes', 'like', "%{$search}%");
+        $q = Invoice::query()->with(['customer', 'project']);
+
+        if ($search = trim($request->search)) {
+            $q->where(function ($x) use ($search) {
+                $x->where('invoice_no', 'like', "%$search%")
+                    ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', "%$search%"))
+                    ->orWhereHas('project', fn ($p) => $p->where('project_code', 'like', "%$search%"));
             });
         }
 
-        if ($status = $request->get('status')) $q->where('status', $status);
-        if ($project = $request->get('project_id')) $q->where('project_id', $project);
-        if ($from = $request->get('from')) $q->whereDate('invoice_date', '>=', $from);
-        if ($to = $request->get('to')) $q->whereDate('invoice_date', '<=', $to);
+        if ($request->filled('status')) {
+            $q->where('status', $request->status);
+        }
 
-        $data = $q->orderBy('id','desc')->paginate($perPage);
+        if ($request->filled('from')) {
+            $q->whereDate('invoice_date', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $q->whereDate('invoice_date', '<=', $request->to);
+        }
+
+        $data = $q->orderBy('id', 'desc')->paginate($perPage);
 
         return response()->json($data);
     }
 
-    // create form
-    public function create()
+    /* ---------------------------------------------------------
+     | VIEW MODEL
+     --------------------------------------------------------- */
+    public function show($id)
     {
-        $quoteMasters = QuoteMaster::orderBy('kw')->get();
-        return view('page.quotations.invoices.form', compact('quoteMasters'));
+        return view('page.quotations.invoices.view_wrapper',compact('id'));
+    }
+    public function viewJson($id)
+    {
+        $invoice = Invoice::with([
+            'items',
+            'payments',
+            'customer',
+            'project.lead',
+            'project.documents',
+            'creator',
+            'sender',
+        ])->findOrFail($id);
+
+        // Format frontend-ready fields
+        $invoice->status_label = ucfirst($invoice->status);
+        $invoice->customer_name = $invoice->customer->name ?? null;
+        $invoice->project_code = $invoice->project->project_code ?? null;
+
+        // Attach PDF URL if exists
+        $invoice->pdf_url = $invoice->pdf_path
+            ? asset('storage/'.$invoice->pdf_path)
+            : null;
+
+        return response()->json([
+            'status' => true,
+            'data' => $invoice,
+        ]);
     }
 
-    // store invoice
+    /* ---------------------------------------------------------
+     | CREATE FORM
+     --------------------------------------------------------- */
+    public function create()
+    {
+        return view('page.quotations.invoices.form', [
+            'statuses' => Invoice::STATUS_LABELS,
+            'quoteMasters' => QuoteMaster::orderBy('kw')->get(),
+        ]);
+    }
+
+    /* ---------------------------------------------------------
+     | STORE
+     --------------------------------------------------------- */
     public function store(Request $request)
     {
         $rules = [
-            'project_id'   => 'required|exists:projects,id',
-            'invoice_date' => 'required|date',
+            'project_id' => 'nullable|exists:projects,id',
+            'invoice_no' => 'nullable|string|unique:invoices,invoice_no',
+            'invoice_date' => 'nullable|date',
             'due_date' => 'nullable|date',
+            'notes' => 'nullable|string',
+            'discount' => 'nullable|numeric',
+            'is_recurring' => 'nullable|boolean',
+            'recurring_type' => 'nullable|string|in:daily,weekly,monthly,yearly,custom',
+            'recurring_interval' => 'nullable|integer',
+            'recurring_end_at' => 'nullable|date',
             'items' => 'required|array|min:1',
+            'items.*.sku' => 'nullable|string',
             'items.*.description' => 'required|string',
             'items.*.unit_price' => 'required|numeric',
             'items.*.quantity' => 'required|integer|min:1',
+            'items.*.tax' => 'nullable|numeric',
         ];
 
-        $validator = Validator::make($request->all(), $rules);
-        if ($validator->fails()) {
-            return response()->json(['status'=>false,'errors'=>$validator->errors(),'req'=>$request->all()], 422);
+        $v = Validator::make($request->all(), $rules);
+        if ($v->fails()) {
+            return back()->withErrors($v)->withInput();
         }
 
-        DB::transaction(function() use($request,&$invoice) {
-            $invoice_no = $request->invoice_no ?: 'INV-'.now()->format('Ymd').'-'.strtoupper(Str::random(4));
-            $invoice = Invoice::create([
-                'project_id' => $request->project_id ?: null,
-                'customer_id' => $request->customer_id ?: null,
-                'invoice_no' => $invoice_no,
-                'status' => $request->status ?: 'draft',
-                'invoice_date' => $request->invoice_date,
-                'due_date' => $request->due_date,
-                'currency' => $request->currency ?: 'INR',
-                'notes' => $request->notes ?: null,
-                'created_by' => auth()->id(),
-            ]);
+        $payload = $request->only([
+            'project_id', 'invoice_no', 'invoice_date', 'due_date',
+            'notes', 'discount', 'is_recurring', 'recurring_type',
+            'recurring_interval', 'recurring_end_at',
+        ]);
 
-            $calc = $this->calculateItemsAndTotals($request->items);
-            foreach ($calc['items'] as $it) {
-                InvoiceItem::create([
-                    'invoice_id'        => $invoice->id,
-                    'quote_master_id'   => $it['quote_master_id'],
-                    'description'       => $it['description'],
-                    'unit_price'        => $it['unit_price'],
-                    'quantity'          => $it['quantity'],
-                    'tax'               => $it['tax'],
-                    'line_total'        => $it['line_total'],
-                ]);
+        /** Auto-assign invoice_no */
+        if (empty($payload['invoice_no'])) {
+            $payload['invoice_no'] = 'INV-'.now()->format('Ymd').'-'.strtoupper(Str::random(4));
+        }
+
+        /** Auto-fill customer from project */
+        if ($request->project_id) {
+            $project = Project::with('customer')->find($request->project_id);
+            if ($project && $project->customer_id) {
+                $payload['customer_id'] = $project->customer_id;
             }
+        }
 
-            $invoice->update([
-                'sub_total' => $calc['sub_total'],
-                'tax_total' => $calc['tax_total'],
-                'discount'  => $request->discount ?? 0,
-                'total'     => ($calc['sub_total'] + $calc['tax_total'] - ($request->discount ?? 0)),
-                'balance'   => ($calc['sub_total'] + $calc['tax_total'] - ($request->discount ?? 0)),
+        $payload['created_by'] = Auth::id();
+
+        /** Compute subtotal, tax_total, total */
+        $sub = 0;
+        $tax = 0;
+
+        foreach ($request->items as $it) {
+            $line = $it['unit_price'] * $it['quantity'];
+            $sub += $line;
+            $tax += ($it['tax'] ?? 0);
+        }
+
+        $payload['sub_total'] = $sub;
+        $payload['tax_total'] = $tax;
+        $payload['total'] = $sub + $tax - ($payload['discount'] ?? 0);
+        $payload['balance'] = $payload['total'];
+
+        $invoice = Invoice::create($payload);
+        // dd($request->all());
+        /** Insert items */
+        foreach ($request->items as $it) {
+            InvoiceItem::create([
+                'invoice_id' => $invoice->id,
+                'quote_master_id' => $this->resolveSku(@$it['sku']),
+                'description' => $it['description'],
+                'unit_price' => $it['unit_price'],
+                'quantity' => $it['quantity'],
+                'tax' => $it['tax'] ?? 0,
+                'line_total' => ($it['unit_price'] * $it['quantity']) + ($it['tax'] ?? 0),
             ]);
-        });
+        }
 
-        return redirect()->route('invoices.index')->with('success','Invoice created.');
+        return redirect()->route('invoices.index')->with('success', 'Invoice created successfully');
     }
 
-    // show invoice
-    public function show($id)
-    {
-        $invoice = Invoice::with(['items','payments','project','lead'])->findOrFail($id);
-        return view('page.quotations.invoices.show', compact('invoice'));
-    }
-
-    // edit
+    /* ---------------------------------------------------------
+     | EDIT
+     --------------------------------------------------------- */
     public function edit($id)
     {
-        $invoice = Invoice::with('items')->findOrFail($id);
-        $quoteMasters = QuoteMaster::orderBy('kw')->get();
-        return view('page.quotations.invoices.form', compact('invoice','quoteMasters'));
+        $invoice = Invoice::with(['items', 'customer', 'project'])->findOrFail($id);
+
+        return view('page.quotations.invoices.form', [
+            'invoice' => $invoice,
+            'quoteMasters' => QuoteMaster::orderBy('kw')->get(),
+            'statuses' => Invoice::STATUS_LABELS,
+        ]);
     }
 
     public function sku($id)
@@ -137,204 +214,143 @@ class InvoiceController extends Controller
         ]);
     }
 
-
-    // update
+    /* ---------------------------------------------------------
+     | UPDATE
+     --------------------------------------------------------- */
     public function update(Request $request, $id)
     {
-        // Similar validation as store; for brevity update minimal fields and items
+        $invoice = Invoice::findOrFail($id);
+
         $rules = [
-            'project_id' => 'required|exists:projects,id',
-            'invoice_date' => 'required|date',
+            'invoice_date' => 'nullable|date',
             'due_date' => 'nullable|date',
             'notes' => 'nullable|string',
+            'discount' => 'nullable|numeric',
+            'status' => 'nullable|in:'.implode(',', array_keys(Invoice::STATUS_LABELS)),
+            'items' => 'required|array|min:1',
         ];
 
-        $validator = Validator::make($request->all(), $rules);
-        if ($validator->fails()) {
-            return response()->json(['status'=>false,'errors'=>$validator->errors(),'req'=>$request->all()], 422);
+        $v = Validator::make($request->all(), $rules);
+        if ($v->fails()) {
+            return back()->withErrors($v)->withInput();
         }
-        $invoice = Invoice::findOrFail($id);
-        $invoice->update($request->only(['invoice_date','due_date','notes','status','currency']));
-        // handle items: simplistic approach — delete all and re-add
-        if ($request->has('items')) {
-            InvoiceItem::where('invoice_id',$invoice->id)->delete();
-            $calc = $this->calculateItemsAndTotals($request->items);
-            foreach ($calc['items'] as $it) {
-                InvoiceItem::create([
-                    'invoice_id'        => $invoice->id,
-                    'quote_master_id'   => $it['quote_master_id'],
-                    'description'       => $it['description'],
-                    'unit_price'        => $it['unit_price'],
-                    'quantity'          => $it['quantity'],
-                    'tax'               => $it['tax'],
-                    'line_total'        => $it['line_total'],
-                ]);
-            }
-            $invoice->update([
-                'sub_total' => $calc['sub_total'],
-                'tax_total' => $calc['tax_total'],
-                'discount'  => $request->discount ?? 0,
-                'total'     => ($calc['sub_total'] + $calc['tax_total'] - ($request->discount ?? 0)),
-                'balance'   => ($calc['sub_total'] + $calc['tax_total'] - ($request->discount ?? 0)),
+
+        /** Recompute totals */
+        $sub = 0;
+        $tax = 0;
+
+        foreach ($request->items as $it) {
+            $sub += ($it['unit_price'] * $it['quantity']);
+            $tax += $it['tax'] ?? 0;
+        }
+
+        $payload = $request->only([
+            'invoice_date', 'due_date', 'notes', 'discount', 'status',
+        ]);
+
+        $payload['sub_total'] = $sub;
+        $payload['tax_total'] = $tax;
+        $payload['total'] = $sub + $tax - ($payload['discount'] ?? 0);
+        $payload['balance'] = $payload['total'] - $invoice->paid_amount;
+
+        $invoice->update($payload);
+
+        /** Update items */
+        InvoiceItem::where('invoice_id', $invoice->id)->delete();
+
+        foreach ($request->items as $it) {
+            InvoiceItem::create([
+                'invoice_id' => $invoice->id,
+                'quote_master_id' => $this->resolveSku($it['sku']),
+                'description' => $it['description'],
+                'unit_price' => $it['unit_price'],
+                'quantity' => $it['quantity'],
+                'tax' => $it['tax'] ?? 0,
+                'line_total' => ($it['unit_price'] * $it['quantity']) + ($it['tax'] ?? 0),
             ]);
         }
-        return redirect()->route('invoices.index')->with('success','Invoice updated.');
+
+        return redirect()->route('invoices.index')->with('success', 'Invoice updated successfully');
     }
 
-    // delete (AJAX)
-    public function destroy(Request $request, $id)
-    {
-        Invoice::where('id',$id)->delete();
-        return response()->json(['status'=>true,'message'=>'Deleted']);
-    }
+    /* ---------------------------------------------------------
+     | VIEW (MODAL JSON)
+     --------------------------------------------------------- */
+    // public function viewJson($id)
+    // {
+    //     return Invoice::with(['items', 'customer', 'project', 'payments'])->findOrFail($id);
+    // }
 
-    // record payment
+    /* ---------------------------------------------------------
+     | RECORD PAYMENT (AJAX)
+     --------------------------------------------------------- */
     public function recordPayment(Request $request, $id)
     {
-        $request->validate([
-            'amount'=>'required|numeric|min:0.01',
-            'method'=>'nullable|string',
-            'reference'=>'nullable|string',
-            'paid_at'=>'nullable|date',
-        ]);
-
         $invoice = Invoice::findOrFail($id);
-        $p = InvoicePayment::create([
-            'invoice_id'=>$invoice->id,
-            'amount'=>$request->amount,
-            'method'=>$request->method,
-            'reference'=>$request->reference,
-            'paid_at'=>$request->paid_at ?: now(),
-            'received_by'=>auth()->id()
+
+        $request->validate([
+            'amount' => 'required|numeric|min:1',
+            'method' => 'nullable|string',
+            'reference' => 'nullable|string',
+            'paid_at' => 'nullable|date',
         ]);
 
-        // update invoice totals
-        $invoice->paid_amount = $invoice->paid_amount + $p->amount;
-        $invoice->balance = max(0, $invoice->total - $invoice->paid_amount);
-        $invoice->status = ($invoice->paid_amount >= $invoice->total) ? 'paid' : 'partial';
-        $invoice->save();
+        InvoicePayment::create([
+            'invoice_id' => $invoice->id,
+            'amount' => $request->amount,
+            'method' => $request->method,
+            'reference' => $request->reference,
+            'paid_at' => $request->paid_at,
+            'received_by' => Auth::id(),
+        ]);
 
-        return response()->json(['status'=>true,'message'=>'Payment recorded','data'=>$p]);
-    }
+        $invoice->paid_amount += $request->amount;
+        $invoice->balance = $invoice->total - $invoice->paid_amount;
 
-    // generate PDF and optionally store (returns download)
-    public function generatePdf($id, Request $request)
-    {
-        $invoice = Invoice::with(['items','project','lead'])->findOrFail($id);
-
-        $pdf = Pdf::loadView('emails.invoice_sent_pdf', compact('invoice'));
-        $filename = "invoice_{$invoice->invoice_no}.pdf";
-
-        if ($request->get('save') == '1') {
-            $path = "invoices/{$filename}";
-            \Storage::disk('public')->put($path, $pdf->output());
-            $invoice->pdf_path = $path;
-            $invoice->save();
-            return response()->json(['status'=>true,'path'=>asset("storage/{$path}")]);
+        if ($invoice->balance <= 0) {
+            $invoice->status = 'paid';
+        } elseif ($invoice->paid_amount > 0) {
+            $invoice->status = 'partial';
         }
 
-        return $pdf->download($filename);
-    }
-
-    // send email with attached PDF (sync)
-    public function sendEmail($id)
-    {
-        $invoice = Invoice::with(['items','project','lead'])->findOrFail($id);
-        dd($invoice);
-        if (!$invoice->lead && !$invoice->project) {
-            // try customer email via customer_id or project/lead relation
-        }
-
-        $pdf = Pdf::loadView('emails.invoice_sent_pdf', compact('invoice'));
-        $filename = "invoice_{$invoice->invoice_no}.pdf";
-        $pdfData = $pdf->output();
-
-        // store temporarily
-        $tmpPath = sys_get_temp_dir() . '/' . $filename;
-        file_put_contents($tmpPath, $pdfData);
-
-        // use Mail::send
-        Mail::send('emails.invoice_sent', ['invoice' => $invoice], function ($m) use ($invoice, $tmpPath, $filename) {
-            $to = $invoice->project->customer_email ?? ($invoice->lead->email ?? null);
-            if (!$to) {
-                // no recipient
-                return;
-            }
-            $m->to($to)->subject("Invoice {$invoice->invoice_no} from ".config('app.name'));
-            $m->attach($tmpPath, ['as'=>$filename,'mime'=>'application/pdf']);
-        });
-
-        // cleanup
-        @unlink($tmpPath);
-
-        $invoice->sent_at = now();
-        $invoice->sent_by = auth()->id();
-        $invoice->status = $invoice->status === 'draft' ? 'sent' : $invoice->status;
         $invoice->save();
 
-        return redirect()->back()->with('success','Mail queued/sent.');
+        return response()->json(['status' => true]);
     }
 
-    // export CSV
-    public function export()
+    /* ---------------------------------------------------------
+     | SKU AUTOFILL
+     --------------------------------------------------------- */
+    private function resolveSku($sku)
     {
-        $fileName = "invoices_export_".date('Ymd').".csv";
-        $rows = Invoice::orderBy('id','desc')->get()->map(function($i){
-            return [
-                'id'=>$i->id,
-                'invoice_no'=>$i->invoice_no,
-                'invoice_date'=>$i->invoice_date,
-                'due_date'=>$i->due_date,
-                'total'=>$i->total,
-                'paid'=>$i->paid_amount,
-                'balance'=>$i->balance,
-                'status'=>$i->status
-            ];
-        })->toArray();
+        if (! $sku) {
+            return null;
+        }
 
-        $response = new StreamedResponse(function() use ($rows) {
-            $h = fopen('php://output','w');
-            if (count($rows)) fputcsv($h,array_keys($rows[0]));
-            foreach($rows as $r) fputcsv($h,$r);
-            fclose($h);
-        });
+        $row = QuoteMaster::where('sku', $sku)->first();
 
-        $response->headers->set('Content-Type','text/csv');
-        $response->headers->set('Content-Disposition',"attachment; filename={$fileName}");
-        return $response;
+        return $row ? $row->id : null;
     }
 
-    protected function calculateItemsAndTotals($items)
-{
-    $sub = 0;
-    $tax = 0;
-    $finalItems = [];
+    /* ---------------------------------------------------------
+     | DOWNLOAD PDF
+     --------------------------------------------------------- */
+    public function pdf($id)
+    {
+        $invoice = Invoice::with(['items', 'customer', 'project'])->findOrFail($id);
 
-    foreach ($items as $it) {
-        $unit = (float)$it['unit_price'];
-        $qty  = (int)$it['quantity'];
-        $taxAmount = isset($it['tax']) ? (float)$it['tax'] : 0;
+        $pdf = Pdf::loadView('pdf.invoice', compact('invoice'));
 
-        $line = $unit * $qty;
-        $lineTotal = $line + $taxAmount;
-
-        $sub += $line;
-        $tax += $taxAmount;
-
-        $finalItems[] = [
-            'quote_master_id' => $it['quote_master_id'] ?? null,
-            'description'     => $it['description'],
-            'unit_price'      => $unit,
-            'quantity'        => $qty,
-            'tax'             => $taxAmount,
-            'line_total'      => $lineTotal
-        ];
+        return $pdf->download("invoice_{$invoice->invoice_no}.pdf");
     }
 
-    return [
-        'sub_total' => $sub,
-        'tax_total' => $tax,
-        'items'     => $finalItems
-    ];
-}
+    /* ---------------------------------------------------------
+     | DELETE
+     --------------------------------------------------------- */
+    public function destroy($id)
+    {
+        Invoice::findOrFail($id)->delete();
+
+        return response()->json(['status' => true]);
+    }
 }

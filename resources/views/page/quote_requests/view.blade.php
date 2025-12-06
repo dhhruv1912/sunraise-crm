@@ -1,7 +1,7 @@
 @php $row = $row ?? null; @endphp
 
 <div class="modal fade" id="quoteRequestViewModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Request — <span id="modal-type"></span> #<span id="modal-id"></span></h5>
@@ -9,7 +9,7 @@
             </div>
 
             <div class="modal-body">
-                <dl class="row">
+                <dl class="row align-items-baseline">
                     <dt class="col-sm-3">Name</dt>
                     <dd class="col-sm-9" id="modal-name">—</dd>
                     <dt class="col-sm-3">Mobile</dt>
@@ -17,7 +17,7 @@
                     <dt class="col-sm-3">Email</dt>
                     <dd class="col-sm-9" id="modal-email">—</dd>
 
-                    <div id="quote-fields">
+                    <div id="quote-fields" class="row align-items-baseline">
                         <dt class="col-sm-3">Module</dt>
                         <dd class="col-sm-9" id="modal-module">—</dd>
                         <dt class="col-sm-3">KW</dt>
@@ -30,6 +30,12 @@
                     <dd class="col-sm-9" id="modal-status">—</dd>
                     <dt class="col-sm-3">Assigned</dt>
                     <dd class="col-sm-9" id="modal-assigned">—</dd>
+                    <dt class="col-sm-3">Quote Master</dt>
+                    <dd class="col-sm-9">
+                        <select name="quote_master_id" id="quote_master_id" class="form-select w-auto">
+                            <option value="">-- Select Quote Master --</option>
+                        </select>
+                    </dd>
                     <dt class="col-sm-3">Notes</dt>
                     <dd class="col-sm-9" id="modal-notes">—</dd>
                 </dl>
@@ -40,6 +46,7 @@
             </div>
 
             <div class="modal-footer">
+                
                 <button id="modal-send-mail" class="btn btn-success">Send Email</button>
                 <button id="modal-convert-lead" class="btn btn-primary">Convert to Lead</button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

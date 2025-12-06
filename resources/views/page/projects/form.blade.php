@@ -52,7 +52,7 @@
                         <option value="">—</option>
                         @foreach($users as $u)
                             <option value="{{ $u->id }}" {{ (isset($project) && $project->assignee == $u->id) ? 'selected' : '' }}>
-                                {{ $u->name }}
+                                {{ $u->fname }} {{ $u->lname }}
                             </option>
                         @endforeach
                     </select>

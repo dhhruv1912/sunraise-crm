@@ -6,16 +6,7 @@
 
     <div class="menu-inner-shadow"></div>
 
-    <div class="app-brand demo d-md-none">
-        <a href="{{ url('/') }}" class="app-brand-link">
-            <span class="app-brand-logo demo me-1">
-                <span style="color: var(--bs-primary)">
-                    {{-- @include('temp.logo') Move SVG to separate file --}}
-                </span>
-            </span>
-            <span class="app-brand-text demo menu-text fw-semibold ms-2">Materio</span>
-        </a>
-    </div>
+    @include('temp.company')
     <ul class="menu-inner py-1">
         @foreach ($menu as $item)
             {{-- PARENT PERMISSION CHECK --}}

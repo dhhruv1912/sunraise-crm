@@ -115,7 +115,6 @@ class UserController extends Controller
 
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
-            $user->password_d = $request->password;
         }
 
         $user->save();

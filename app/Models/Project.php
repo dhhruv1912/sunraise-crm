@@ -81,6 +81,7 @@ class Project extends Model
         'invoice_date' => 'date',
     ];
 
+    public const BADGES = [];
     /**
      * Status Label Mapping
      */

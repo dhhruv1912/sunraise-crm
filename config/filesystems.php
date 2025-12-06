@@ -47,7 +47,6 @@ return [
             'report' => false,
         ],
 
-
     ],
 
     /*

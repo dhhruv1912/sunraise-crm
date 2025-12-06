@@ -4,290 +4,326 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\Lead;
+use App\Models\Customer;
 use App\Models\Document;
 use App\Models\ProjectHistory;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ProjectController extends Controller
 {
-    /**
-     * Show projects list page.
-     */
+    /* ---------------------------------------------------------
+     | LIST PAGE
+     --------------------------------------------------------- */
     public function index()
     {
-        // status labels from model
-        $statuses = Project::STATUS_LABELS;
-        $users = User::orderBy('fname')->get(['id','fname','lname']);
-        return view('page.projects.list', compact('statuses','users'));
+        return view('page.projects.list', [
+            'statuses' => Project::STATUS_LABELS,
+            'users' => User::get(),
+        ]);
     }
 
-    /**
-     * AJAX: paginated list with filters / search
-     */
+    /* ---------------------------------------------------------
+     | AJAX LIST
+     --------------------------------------------------------- */
     public function ajaxList(Request $request)
     {
         $perPage = (int) $request->get('per_page', 20);
-        $query = Project::query();
 
-        if ($q = $request->get('search')) {
-            $query->where(function($s) use ($q) {
-                $s->where('customer_name', 'like', "%{$q}%")
-                  ->orWhere('project_code', 'like', "%{$q}%")
-                  ->orWhere('mobile', 'like', "%{$q}%")
-                  ->orWhere('address', 'like', "%{$q}%");
+        $q = Project::query()->with(['customer']);
+
+        if ($search = trim($request->search)) {
+            $q->where(function ($x) use ($search) {
+                $x->where('project_code', 'like', "%$search%")
+                  ->orWhere('customer_name', 'like', "%$search%")
+                  ->orWhere('mobile', 'like', "%$search%")
+                  ->orWhere('address', 'like', "%$search%");
             });
         }
 
-        if ($status = $request->get('filter_status')) {
-            $query->where('status', $status);
+        if ($request->filled('status')) {
+            $q->where('status', $request->status);
         }
 
-        if ($assignee = $request->get('filter_assignee')) {
-            $query->where('assignee', $assignee);
+        if ($request->filled('assignee')) {
+            $q->where('assignee', $request->assignee);
         }
 
-        if ($from = $request->get('filter_from')) {
-            $query->whereDate('created_at', '>=', $from);
+        if ($request->filled('from')) {
+            $q->whereDate('created_at', '>=', $request->from);
         }
-        if ($to = $request->get('filter_to')) {
-            $query->whereDate('created_at', '<=', $to);
+        if ($request->filled('to')) {
+            $q->whereDate('created_at', '<=', $request->to);
         }
 
-        $data = $query->orderBy('id','desc')->paginate($perPage);
-        // For each project add small metadata used by JS view
-        $data->getCollection()->transform(function($p){
+        $data = $q->orderBy('id', 'desc')->paginate($perPage);
+
+        $data->getCollection()->transform(function ($p) {
             $p->status_label = $p->status_label;
-            $p->assignee_name = $p->assigneeUser ? $p->assigneeUser->name : null;
+            $p->assignee_name = $p->assigneeUser->name ?? null;
             return $p;
         });
 
         return response()->json($data);
     }
 
-    /**
-     * Create form
-     */
+    /* ---------------------------------------------------------
+     | CREATE
+     --------------------------------------------------------- */
     public function create()
     {
-        $users = User::orderBy('fname')->get(['id','fname','lname']);
-        $statuses = Project::STATUS_LABELS;
-        return view('page.projects.form', compact('users','statuses'));
+        return view('page.projects.form', [
+            'statuses' => Project::STATUS_LABELS,
+            'users' => User::get(),
+        ]);
     }
 
-    /**
-     * Store new project
-     */
+    /* ---------------------------------------------------------
+     | STORE
+     --------------------------------------------------------- */
     public function store(Request $request)
     {
-        $v = Validator::make($request->all(), [
-            'lead_id' => 'nullable|exists:leads,id',
-            'project_code' => 'nullable|string|unique:projects,project_code',
-            'customer_name' => 'required|string',
-            'mobile' => 'nullable|string',
-            'address' => 'nullable|string',
-            'kw' => 'nullable|numeric',
-            'module_brand' => 'nullable|string',
+        $rules = [
+            'customer_id'    => 'nullable|exists:customers,id',
+            'lead_id'        => 'nullable|exists:leads,id',
+            'project_code'   => 'nullable|string|unique:projects,project_code',
+            'customer_name'  => 'required|string',
+            'mobile'         => 'nullable|string',
+            'address'        => 'nullable|string',
+            'kw'             => 'nullable|numeric',
+            'module_brand'   => 'nullable|string',
             'inverter_brand' => 'nullable|string',
-            'module_count' => 'nullable|integer',
-            'assignee' => 'nullable|exists:users,id',
-            'reporter' => 'nullable|exists:users,id',
-            'status' => 'nullable|in:'.implode(',',array_keys(Project::STATUS_LABELS)),
-        ]);
+            'module_count'   => 'nullable|integer',
+            'assignee'       => 'nullable|exists:users,id',
+            'status'         => 'nullable|in:' . implode(',', array_keys(Project::STATUS_LABELS)),
+            'project_value'  => 'nullable|numeric',
+            'finalize_price' => 'nullable|numeric',
+            'emi'            => 'nullable|numeric',
+            'project_note'   => 'nullable|string',
+        ];
 
-        if ($v->fails()) {
-            return back()->withErrors($v)->withInput();
-        }
+        $v = Validator::make($request->all(), $rules);
+        if ($v->fails()) return back()->withErrors($v)->withInput();
 
-        $payload = $request->only([
-            'lead_id','project_code','customer_name','mobile','address',
-            'kw','module_brand','inverter_brand','module_count','assignee','reporter','status',
-            'project_value','finalize_price','emi','project_note'
-        ]);
+        $payload = $request->only(array_keys($rules));
 
         if (empty($payload['project_code'])) {
-            $payload['project_code'] = 'PRJ-' . now()->format('Ymd') . '-' . Str::upper(Str::random(4));
+            $payload['project_code'] = "PRJ-" . now()->format("Ymd") . "-" . strtoupper(Str::random(4));
+        }
+
+        /** Auto-sync customer info */
+        if ($request->customer_id) {
+            $c = Customer::find($request->customer_id);
+            if ($c) {
+                $payload['customer_name'] = $c->name;
+                $payload['mobile']        = $c->mobile;
+                $payload['address']       = $c->address;
+            }
         }
 
         $project = Project::create($payload);
 
-        // create history
-        ProjectHistory::create([
-            'project_id' => $project->id,
-            'status' => $project->status ?? 'new',
-            'changed_by' => auth()->id() ?? null,
-            'notes' => 'Project created'
-        ]);
+        $this->logHistory($project->id, "created", "Project created");
 
-        return redirect()->route('projects.index')->with('success','Project created.');
+        return redirect()->route('projects.index')
+            ->with('success', 'Project created successfully');
     }
 
-    /**
-     * Edit form
-     */
+    /* ---------------------------------------------------------
+     | EDIT
+     --------------------------------------------------------- */
     public function edit($id)
     {
-        $project = Project::findOrFail($id);
-        $users = User::orderBy('fname')->get(['id','fname','lname']);
-        $statuses = Project::STATUS_LABELS;
-        return view('page.projects.form', compact('project','users','statuses'));
+        $project = Project::with(['customer'])->findOrFail($id);
+
+        return view('page.projects.form', [
+            'project'  => $project,
+            'users' => User::get(),
+            'statuses' => Project::STATUS_LABELS,
+        ]);
     }
 
-    /**
-     * Update
-     */
+    /* ---------------------------------------------------------
+     | UPDATE
+     --------------------------------------------------------- */
     public function update(Request $request, $id)
     {
         $project = Project::findOrFail($id);
 
-        $v = Validator::make($request->all(), [
-            'project_code' => 'nullable|string|unique:projects,project_code,'.$project->id,
-            'customer_name' => 'required|string',
-            'mobile' => 'nullable|string',
-            'address' => 'nullable|string',
-            'kw' => 'nullable|numeric',
-            'module_brand' => 'nullable|string',
+        $rules = [
+            'customer_id'    => 'nullable|exists:customers,id',
+            'lead_id'        => 'nullable|exists:leads,id',
+            'project_code'   => 'nullable|string|unique:projects,project_code,' . $project->id,
+            'customer_name'  => 'required|string',
+            'mobile'         => 'nullable|string',
+            'address'        => 'nullable|string',
+            'kw'             => 'nullable|numeric',
+            'module_brand'   => 'nullable|string',
             'inverter_brand' => 'nullable|string',
-            'module_count' => 'nullable|integer',
-            'assignee' => 'nullable|exists:users,id',
-            'reporter' => 'nullable|exists:users,id',
-            'status' => 'nullable|in:'.implode(',',array_keys(Project::STATUS_LABELS)),
-        ]);
-        if ($v->fails()) {
-            return back()->withErrors($v)->withInput();
+            'module_count'   => 'nullable|integer',
+            'assignee'       => 'nullable|exists:users,id',
+            'status'         => 'nullable|in:' . implode(',', array_keys(Project::STATUS_LABELS)),
+            'project_value'  => 'nullable|numeric',
+            'finalize_price' => 'nullable|numeric',
+            'emi'            => 'nullable|numeric',
+            'project_note'   => 'nullable|string',
+        ];
+
+        $v = Validator::make($request->all(), $rules);
+        if ($v->fails()) return back()->withErrors($v)->withInput();
+
+        $payload = $request->only(array_keys($rules));
+
+        /** Auto-fill customer */
+        if ($request->customer_id) {
+            $c = Customer::find($request->customer_id);
+            if ($c) {
+                $payload['customer_name'] = $c->name;
+                $payload['mobile']        = $c->mobile;
+                $payload['address']       = $c->address;
+            }
         }
 
-        $project->update($request->only([
-            'project_code','customer_name','mobile','address',
-            'kw','module_brand','inverter_brand','module_count','assignee','reporter','status','finalize_price','emi','project_note'
-        ]));
+        $project->update($payload);
 
-        ProjectHistory::create([
-            'project_id' => $project->id,
-            'status' => $project->status,
-            'changed_by' => auth()->id() ?? null,
-            'notes' => 'Project updated'
-        ]);
+        $this->logHistory($project->id, "updated", "Project updated");
 
-        return redirect()->route('projects.index')->with('success','Project updated.');
+        return redirect()->route('projects.index')->with('success', 'Project updated successfully');
     }
 
-    /**
-     * HTML show page
-     */
+    /* ---------------------------------------------------------
+     | VIEW PAGE
+     --------------------------------------------------------- */
     public function view($id)
     {
-        $project = Project::with(['documents','history','assigneeUser','reporterUser'])->findOrFail($id);
+        $project = Project::with([
+            'customer',
+            'documents',
+            'history',
+            'assigneeUser',
+        ])->findOrFail($id);
+
         return view('page.projects.view', compact('project'));
     }
 
-    /**
-     * AJAX JSON for modal
-     */
+    /* ---------------------------------------------------------
+     | VIEW JSON (modal)
+     --------------------------------------------------------- */
     public function viewJson($id)
     {
-        $p = Project::with(['assigneeUser','reporterUser','documents','history'])->findOrFail($id);
-        $p->assignee_name = $p->assigneeUser ? $p->assigneeUser->name : null;
-        $p->reporter_name = $p->reporterUser ? $p->reporterUser->name : null;
+        $p = Project::with([
+            'customer',
+            'documents',
+            'history',
+            'assigneeUser'
+        ])->findOrFail($id);
+
         return response()->json($p);
     }
 
-    /**
-     * Assign project to user (AJAX)
-     */
+    /* ---------------------------------------------------------
+     | ASSIGN USER
+     --------------------------------------------------------- */
     public function assign(Request $request, $id)
     {
         $request->validate(['assignee' => 'required|exists:users,id']);
-        $project = Project::findOrFail($id);
-        $from = $project->assignee;
-        $project->assignee = $request->assignee;
-        $project->save();
 
-        ProjectHistory::create([
-            'project_id' => $project->id,
-            'status' => $project->status,
-            'changed_by' => auth()->id() ?? null,
-            'notes' => "Assigned to user {$request->assignee}"
-        ]);
+        $p = Project::findOrFail($id);
+        $old = $p->assignee;
 
-        return response()->json(['status'=>true,'message'=>'Assigned']);
+        $p->assignee = $request->assignee;
+        $p->save();
+
+        $this->logHistory($id, "assigned", "Assigned to User #{$request->assignee}");
+
+        return response()->json(['status' => true]);
     }
 
-    /**
-     * Change status (AJAX)
-     */
+    /* ---------------------------------------------------------
+     | STATUS CHANGE
+     --------------------------------------------------------- */
     public function changeStatus(Request $request, $id)
     {
-        $request->validate(['status'=>'required|in:'.implode(',',array_keys(Project::STATUS_LABELS))]);
-        $project = Project::findOrFail($id);
-        $old = $project->status;
-        $project->status = $request->status;
-        $project->save();
-
-        ProjectHistory::create([
-            'project_id' => $project->id,
-            'status' => $project->status,
-            'changed_by' => auth()->id() ?? null,
-            'notes' => "Status changed from {$old} to {$project->status}"
+        $validated = $request->validate([
+            'status' => 'required|in:' . implode(',', array_keys(Project::STATUS_LABELS))
         ]);
 
-        return response()->json(['status'=>true,'message'=>'Status updated']);
+        $p = Project::findOrFail($id);
+        $old = $p->status;
+
+        $p->status = $validated['status'];
+        $p->save();
+
+        $this->logHistory($id, "status_change", "Status changed from $old → {$p->status}");
+
+        return response()->json(['status' => true]);
     }
 
-    /**
-     * Attach a document to project (keeps your existing design)
-     */
+    /* ---------------------------------------------------------
+     | DOCUMENT UPLOAD (POLYMORPHIC)
+     --------------------------------------------------------- */
     public function attachDocument(Request $request, $id)
     {
         $project = Project::findOrFail($id);
 
         $request->validate([
-            'file' => 'required|file|max:10240',
-            'type' => 'nullable|string'
+            'file' => 'required|file|max:20000',
+            'type' => 'nullable|string|max:255',
         ]);
 
-        $file = $request->file('file');
-        $path = $file->store("documents/{$project->id}", 'public');
+        $path = $request->file('file')->store("documents/projects/{$id}", "public");
 
         $doc = Document::create([
-            'project_id' => $project->id,
-            'type' => $request->type ?? 'other',
-            'file_path' => $path,
-            'uploaded_by' => auth()->id() ?? null,
-            'meta' => null
+            'entity_type' => 'project',
+            'entity_id'   => $id,
+            'file_path'   => $path,
+            'file_name'   => basename($path),
+            'mime_type'   => $request->file('file')->getMimeType(),
+            'size'        => $request->file('file')->getSize(),
+            'uploaded_by' => Auth::id(),
+            'type'        => $request->type ?? 'other',
         ]);
 
-        ProjectHistory::create([
-            'project_id' => $project->id,
-            'status' => $project->status,
-            'changed_by' => auth()->id() ?? null,
-            'notes' => "Uploaded document: {$doc->type}"
-        ]);
+        $this->logHistory($id, "document_uploaded", "Uploaded document {$doc->file_name}");
 
-        return response()->json(['status'=>true,'message'=>'Uploaded','data'=>$doc]);
+        return response()->json(['status' => true, 'doc' => $doc]);
     }
 
-    /**
-     * JSON history list
-     */
+    /* ---------------------------------------------------------
+     | HISTORY JSON
+     --------------------------------------------------------- */
     public function history($id)
     {
-        $history = ProjectHistory::where('project_id', $id)->orderBy('id','desc')->get();
-        return response()->json($history);
+        return ProjectHistory::where('project_id', $id)
+            ->orderBy('id', 'desc')
+            ->get();
     }
 
-    /**
-     * Delete (AJAX)
-     */
-    public function delete(Request $request, $id)
+    /* ---------------------------------------------------------
+     | DELETE
+     --------------------------------------------------------- */
+    public function delete($id)
     {
-        $project = Project::findOrFail($id);
-        // soft-delete if you prefer. here hard delete:
-        $project->delete();
+        $p = Project::findOrFail($id);
+        $p->delete();
 
-        return response()->json(['status'=>true,'message'=>'Deleted']);
+        return response()->json(['status' => true]);
+    }
+
+    /* ---------------------------------------------------------
+     | LOG HISTORY
+     --------------------------------------------------------- */
+    private function logHistory($projectId, $action, $notes)
+    {
+        ProjectHistory::create([
+            'project_id' => $projectId,
+            'status'     => Project::find($projectId)->status ?? 'new',
+            'changed_by' => Auth::id(),
+            'notes'      => $notes,
+        ]);
     }
 }

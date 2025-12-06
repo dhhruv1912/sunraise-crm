@@ -2,17 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\LeadHistory;
 use App\Models\Project;
+use App\Models\ProjectHistory;
 use App\Models\QuoteRequest;
 use App\Models\User;
-use App\Models\Customer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Illuminate\Support\Facades\Auth;
 
 class LeadController extends Controller
 {
@@ -42,6 +43,7 @@ class LeadController extends Controller
     {
         $statuses = $this->getStatusMap();
         $users = User::orderBy('fname')->get(['id', 'fname', 'lname']);
+
         return view('page.marketing.list', compact('statuses', 'users'));
     }
 
@@ -52,7 +54,7 @@ class LeadController extends Controller
     public function ajaxList(Request $request)
     {
         $perPage = (int) $request->get('per_page', 20);
-        $query = Lead::query()->with(['quoteRequest']);
+        $query = Lead::query()->with(['quoteRequest','customer']);
 
         // Search across lead_code, remarks, quote_request name, mobile etc.
         if ($q = $request->get('search')) {
@@ -61,8 +63,8 @@ class LeadController extends Controller
                     ->orWhere('remarks', 'like', "%{$q}%")
                     ->orWhereHas('quoteRequest', function ($qr) use ($q) {
                         $qr->where('name', 'like', "%{$q}%")
-                           ->orWhere('number', 'like', "%{$q}%")
-                           ->orWhere('email', 'like', "%{$q}%");
+                            ->orWhere('number', 'like', "%{$q}%")
+                            ->orWhere('email', 'like', "%{$q}%");
                     });
             });
         }
@@ -96,9 +98,10 @@ class LeadController extends Controller
         $statusMap = $this->getStatusMap();
         $data->getCollection()->transform(function ($item) use ($statusMap) {
             $assignedUser = $item->assigned_to ? User::find($item->assigned_to) : null;
-            $item->assigned_to_name = $assignedUser ? trim(($assignedUser->fname ?? '') . ' ' . ($assignedUser->lname ?? '')) : null;
+            $item->assigned_to_name = $assignedUser ? trim(($assignedUser->fname ?? '').' '.($assignedUser->lname ?? '')) : null;
             $item->quote_request_name = optional($item->quoteRequest)->name;
             $item->status_label = $statusMap[$item->status] ?? $item->status;
+
             return $item;
         });
 
@@ -112,6 +115,7 @@ class LeadController extends Controller
     {
         $statuses = $this->getStatusMap();
         $users = User::orderBy('fname')->get(['id', 'fname', 'lname']);
+
         return view('page.marketing.form', compact('statuses', 'users'));
     }
 
@@ -124,7 +128,7 @@ class LeadController extends Controller
 
         // generate lead_code if missing
         if (empty($payload['lead_code'])) {
-            $payload['lead_code'] = 'LD-' . now()->format('Ymd') . '-' . Str::upper(Str::random(4));
+            $payload['lead_code'] = 'LD-'.now()->format('Ymd').'-'.Str::upper(Str::random(4));
         }
 
         $payload['created_by'] = Auth::id() ?? ($payload['created_by'] ?? null);
@@ -141,9 +145,10 @@ class LeadController extends Controller
      */
     public function edit($id)
     {
-        $lead = Lead::with(['quoteRequest'])->findOrFail($id);
+        $lead = Lead::with(['quoteRequest','customer'])->findOrFail($id);
         $statuses = $this->getStatusMap();
         $users = User::orderBy('fname')->get(['id', 'fname', 'lname']);
+        // dd($lead);
         return view('page.marketing.form', compact('lead', 'statuses', 'users'));
     }
 
@@ -198,7 +203,7 @@ class LeadController extends Controller
      */
     public function viewJson($id)
     {
-        $lead = Lead::with(['quoteRequest', 'history'])->findOrFail($id);
+        $lead = Lead::with(['quoteRequest', 'history', 'creator', 'assignedUser','customer'])->findOrFail($id);
 
         $assignedUser = $lead->assigned_to ? User::find($lead->assigned_to) : null;
 
@@ -206,23 +211,23 @@ class LeadController extends Controller
             'id' => $lead->id,
             'lead_code' => $lead->lead_code,
             'assigned_to' => $lead->assigned_to,
-            'assigned_to_name' => $assignedUser ? trim(($assignedUser->fname ?? '') . ' ' . ($assignedUser->lname ?? '')) : null,
+            'assigned_to_name' => $assignedUser ? trim(($assignedUser->fname ?? '').' '.($assignedUser->lname ?? '')) : null,
             'status' => $lead->status,
             'remarks' => $lead->remarks,
             'quote_request' => $lead->quoteRequest,
             'created_at' => $lead->created_at ? $lead->created_at->toDateTimeString() : null,
-            'history' => $lead->history()->orderBy('id','desc')->get()->map(function ($h) {
+            'history' => $lead->history()->orderBy('id', 'desc')->get()->map(function ($h) {
                 return [
                     'id' => $h->id,
                     'action' => $h->action,
                     'message' => $h->message,
-                    'changed_by' => $h->changed_by ? optional(User::find($h->changed_by))->fname . ' ' . optional(User::find($h->changed_by))->lname : null,
+                    'changed_by' => $h->changed_by ? optional(User::find($h->changed_by))->fname.' '.optional(User::find($h->changed_by))->lname : null,
                     'created_at' => $h->created_at ? $h->created_at->format('d M Y h:i A') : null,
                 ];
             })->values(),
         ];
 
-        return response()->json($payload);
+        return response()->json($lead);
     }
 
     /**
@@ -249,7 +254,7 @@ class LeadController extends Controller
     {
         $statusMap = array_keys($this->getStatusMap());
         $request->validate([
-            'status' => 'required|string|in:' . implode(',', $statusMap)
+            'status' => 'required|string|in:'.implode(',', $statusMap),
         ]);
 
         $lead = Lead::findOrFail($id);
@@ -265,7 +270,7 @@ class LeadController extends Controller
                 try {
                     $proj = Project::create([
                         'lead_id' => $lead->id,
-                        'project_code' => 'PRJ-' . now()->format('Ymd') . '-' . Str::upper(Str::random(4)),
+                        'project_code' => 'PRJ-'.now()->format('Ymd').'-'.Str::upper(Str::random(4)),
                         'customer_name' => optional($lead->quoteRequest)->name ?? null,
                         'mobile' => optional($lead->quoteRequest)->number ?? null,
                         'status' => 'new',
@@ -274,7 +279,7 @@ class LeadController extends Controller
                     ]);
                     $this->logHistory($lead->id, 'converted', 'Lead converted to project ID '.$proj->id, Auth::id());
                 } catch (\Throwable $th) {
-                    Log::warning("Project create failed for lead {$lead->id}: " . $th->getMessage());
+                    Log::warning("Project create failed for lead {$lead->id}: ".$th->getMessage());
                 }
             }
         }
@@ -287,7 +292,7 @@ class LeadController extends Controller
      */
     public function export()
     {
-        $fileName = 'leads_export_' . now()->format('Ymd_Hi') . '.csv';
+        $fileName = 'leads_export_'.now()->format('Ymd_Hi').'.csv';
         $rows = Lead::with('quoteRequest')->orderBy('id', 'desc')->get();
 
         $columns = ['id', 'lead_code', 'assigned_to', 'assigned_to_name', 'status', 'remarks', 'created_at'];
@@ -301,7 +306,7 @@ class LeadController extends Controller
                     $row->id,
                     $row->lead_code,
                     $row->assigned_to,
-                    $assignedUser ? trim(($assignedUser->fname ?? '') . ' ' . ($assignedUser->lname ?? '')) : '',
+                    $assignedUser ? trim(($assignedUser->fname ?? '').' '.($assignedUser->lname ?? '')) : '',
                     $row->status,
                     $row->remarks,
                     $row->created_at ? $row->created_at->toDateTimeString() : '',
@@ -383,7 +388,7 @@ class LeadController extends Controller
     public function move(Request $request, $leadId)
     {
         $statusMapKeys = array_keys($this->getStatusMap());
-        $request->validate(['status' => 'required|in:' . implode(',', $statusMapKeys)]);
+        $request->validate(['status' => 'required|in:'.implode(',', $statusMapKeys)]);
 
         $lead = Lead::findOrFail($leadId);
         $old = $lead->status;
@@ -402,7 +407,7 @@ class LeadController extends Controller
     {
         // create / find customer if provided mobile
         $customerId = null;
-        if ($request->filled('mobile')) {
+        if ($request->filled('mobile') || $request->filled('email')) {
             $customer = Customer::firstOrCreate(
                 ['mobile' => $request->mobile],
                 ['name' => $request->name ?? null, 'email' => $request->email ?? null]
@@ -412,7 +417,7 @@ class LeadController extends Controller
 
         $payload = $this->validateRequest($request);
         $payload['customer_id'] = $customerId;
-        $payload['lead_code'] = $payload['lead_code'] ?? 'LD-' . time();
+        $payload['lead_code'] = $payload['lead_code'] ?? 'LD-'.time();
         $payload['created_by'] = Auth::id();
 
         $lead = Lead::create($payload);
@@ -442,7 +447,7 @@ class LeadController extends Controller
 
         $project = Project::create([
             'lead_id' => $lead->id,
-            'project_code' => 'P-' . time(),
+            'project_code' => 'P-'.time(),
             'customer_name' => optional($lead->quoteRequest)->name ?? null,
             'mobile' => optional($lead->quoteRequest)->number ?? null,
             'status' => 'new',
@@ -464,6 +469,7 @@ class LeadController extends Controller
         $request->validate(['assigned_to' => 'nullable|exists:users,id']);
         $lead->update(['assigned_to' => $request->assigned_to]);
         $this->logHistory($lead->id, 'assign', 'Assignment updated', Auth::id());
+
         return response()->json(['success' => true]);
     }
 
@@ -475,6 +481,7 @@ class LeadController extends Controller
         $request->validate(['status' => 'required|string']);
         $lead->update(['status' => $request->status]);
         $this->logHistory($lead->id, 'status_change', 'Status updated', Auth::id());
+
         return response()->json(['success' => true]);
     }
 
@@ -491,7 +498,7 @@ class LeadController extends Controller
                 'changed_by' => $userId ?? Auth::id(),
             ]);
         } catch (\Throwable $th) {
-            Log::warning('LeadHistory create failed: ' . $th->getMessage());
+            Log::warning('LeadHistory create failed: '.$th->getMessage());
         }
     }
 
@@ -511,6 +518,59 @@ class LeadController extends Controller
             'remarks' => 'nullable|string',
             'meta' => 'nullable|array',
             'customer_id' => 'nullable|exists:customers,id',
+        ]);
+    }
+
+    public function createProjectFromLead($leadId)
+    {
+        $lead = Lead::with(['customer', 'quoteRequest'])->findOrFail($leadId);
+        dd($lead);
+        // Prevent duplicate project
+        if (Project::where('lead_id', $lead->id)->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Project already exists for this lead.',
+            ], 409);
+        }
+
+        // Auto-generate project code
+        $projectCode = 'PRJ-'.now()->format('Ymd').'-'.strtoupper(Str::random(4));
+
+        // Build payload using lead + customer + quote request
+        $payload = [
+            'lead_id' => $lead->id,
+            'project_code' => $projectCode,
+            'customer_name' => $lead->customer->name ?? ($lead->quoteRequest->name ?? ''),
+            'mobile' => $lead->customer->mobile ?? ($lead->quoteRequest->number ?? ''),
+            'address' => $lead->customer->address ?? ($lead->quoteRequest->address ?? ''),
+            'kw' => $lead->quoteRequest->kw ?? null,
+            'module_count' => $lead->quoteRequest->mc ?? null,
+            'module_brand' => null,
+            'inverter_brand' => null,
+            'status' => 'new',
+            'assignee' => $lead->assigned_to ?? null,
+            'reporter' => Auth::id(),
+        ];
+
+        // Create project
+        $project = Project::create($payload);
+
+        // Log project history
+        ProjectHistory::create([
+            'project_id' => $project->id,
+            'status' => 'new',
+            'changed_by' => Auth::id(),
+            'notes' => "Project created from Lead #{$lead->lead_code}",
+        ]);
+
+        // Update lead status
+        $lead->update(['status' => 'converted']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Project created successfully.',
+            'project_id' => $project->id,
+            'project_url' => route('projects.edit', $project->id),
         ]);
     }
 }

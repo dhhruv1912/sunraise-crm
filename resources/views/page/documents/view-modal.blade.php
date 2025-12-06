@@ -1,5 +1,5 @@
 <div class="modal fade" id="docViewModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+  <div class="modal-dialog-centered modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="docModalTitle">Document</h5>

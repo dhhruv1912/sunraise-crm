@@ -13,7 +13,11 @@
             <div class="row g-2">
                 <div class="col-md-3">
                     <label>Type</label>
-                    <input name="type" class="form-control" value="{{ old('type', $data->type ?? '') }}">
+                    <select name="type" class="form-select">
+                        <option value="" selected>-- Select Type --</option>
+                        <option value="quote" {{ (old('type', $data->type ?? '') == "quote") ? 'selected' : ''}}>Quote</option>
+                        <option value="call" {{ (old('type', $data->type ?? '') == "call") ? 'selected' : ''}}>Call</option>
+                    </select>
                 </div>
 
                 <div class="col-md-3">
@@ -55,9 +59,15 @@
                     </select>
                 </div>
 
-                <div class="col-md-2">
-                    <label>Assigned To (user id)</label>
-                    <input name="assigned_to" class="form-control" value="{{ old('assigned_to', $data->assigned_to ?? '') }}">
+                <div class="col-md-3">
+                    <label>Assigned To</label>
+                    <select name="assigned_to" class="form-select">
+                        <option value="">-- Select Assignee --</option>
+                        @foreach($users as $k => $lbl)
+                            <option value="{{ $lbl->id }}" {{ (old('assigned_to', $data->assigned_to ?? '') == $lbl->id) ? 'selected' : ''}}>{{ $lbl->fname }} {{ $lbl->lname }}</option>
+                        @endforeach
+                    </select>
+                    {{-- @dd($users) --}}
                 </div>
 
                 <div class="col-12 mt-2">

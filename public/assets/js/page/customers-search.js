@@ -5,6 +5,8 @@ async function customerSearch(inputId, hiddenId, onSelect = null) {
     let dropdown;
 
     input.addEventListener("input", async () => {
+        console.log(input.value);
+        
         const q = input.value.trim();
         if (q.length < 2) return;
 

@@ -1,12 +1,20 @@
 @extends('temp.common')
 
 @section('content')
+@php
+    $total = [
+        'sub' => 0,
+        'tax' => 0,
+        'grand' => 0,
+        'discount' => 0,
+    ];
+@endphp
     <div class="card">
         <div class="card-header d-flex align-items-baseline justify-content-between">
             <h4>{{ @$invoice ? 'Edit Invoice' : 'New Invoice' }}</h4>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="attachProjectBtn">
-                    Attach Project
-                </button>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="attachProjectBtn">
+                Attach Project
+            </button>
         </div>
         <div class="card-body">
             <form method="POST" action="{{ @$invoice ? route('invoices.update', $invoice->id) : route('invoices.store') }}">
@@ -26,59 +34,142 @@
                 </div>
 
                 <hr>
-                <h5>Items</h5>
+                <div class="d-flex justify-content-between pb-3 align-items-center">
+                    <h5 class="mb-0">Items</h5>
+                    <button type="button" id="addItem" class="btn btn-sm btn-primary">Add Item</button>
+                </div>
                 <div id="itemsWrapper">
+                    <div class="row gap-1 m-2 invoice-item">
+                        <div class="col-1 desc-input">SKU</div>
+                        <div class="col-3 desc-input">Desc</div>
+                        <div class="col price-input">Price</div>
+                        <div class="col qty-input">Quentity</div>
+                        <div class="col tax-input">Tax</div>
+                        <div class="col"></div>
+                    </div>
                     @if (isset($invoice))
                         @foreach ($invoice->items as $id => $item)
-                            <div class="row mb-2 invoice-item">
-                                <input type="hidden" name="items[{{ $id }}][quote_master_id]"
-                                    value="{{ $item->quote_master_id }}">
-                                <div class="col-6"><input name="items[{{ $id }}][description]"
-                                        class="form-control items-description" value="{{ $item->description }}"></div>
-                                <div class="col-2"><input name="items[{{ $id }}][unit_price]"
-                                        class="form-control" value="{{ $item->unit_price }}"></div>
-                                <div class="col-2"><input name="items[{{ $id }}][quantity]" class="form-control"
-                                        value="{{ $item->quantity }}"></div>
-                                <div class="col-2"><button type="button" class="btn btn-danger remove-item">X</button>
+                            <div class="row gap-1 m-2 invoice-item">
+
+                                <input type="hidden" name="items[{{ $id }}][sku]" value="{{ $item->sku ?? '' }}">
+
+                                {{-- SKU only shown for first row --}}
+                                <div class="col-1">
+                                    @if ($id == 0)
+                                        <select name="items[{{ $id }}][quote_master_id]"
+                                            class="form-select sku-select">
+                                            <option value="">Select SKU</option>
+                                            @foreach ($quoteMasters as $m)
+                                                <option value="{{ $m->id }}" @selected($m->id == $item->quote_master_id)>
+                                                    {{ $m->sku }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    @else
+                                        <input type="hidden" name="items[{{ $id }}][quote_master_id]"
+                                            value="{{ $item->quote_master_id }}">
+                                    @endif
                                 </div>
+
+                                <div class="col-3">
+
+                                    <input name="items[{{ $id }}][description]" value="{{ $item->description }}"
+                                        class="form-control desc-input">
+                                </div>
+
+                                <div class="col">
+
+                                    <input name="items[{{ $id }}][unit_price]" value="{{ $item->unit_price }}"
+                                        class="form-control price-input">
+                                </div>
+
+                                <div class="col">
+
+                                    <input name="items[{{ $id }}][quantity]" value="{{ $item->quantity }}"
+                                        class="form-control qty-input">
+                                </div>
+
+                                <div class="col">
+
+                                    <input name="items[{{ $id }}][tax]" value="{{ $item->tax }}"
+                                        class="form-control tax-input">
+                                </div>
+
+                                <div class="col d-flex justify-content-around align-items-center">
+                                    <button type="button" class="btn btn-danger remove-item w-25">X</button>
+                                    <span
+                                        class="line-total text-end w-75">{{ number_format($item->unit_price * $item->quantity + $item->tax, 2) }}</span>
+                                </div>
+                                @php
+                                    $total['sub'] = $total['sub'] + ($item->unit_price * $item->quantity);
+                                    $total['tax'] = $total['tax'] + $item->tax;
+                                    $total['grand'] = $total['grand'] + $item->unit_price * $item->quantity + $item->tax;
+                                @endphp
                             </div>
                         @endforeach
+                        @php
+                            $total['discount'] = $invoice->discount;
+                            $total['grand'] = $total['grand'] - $total['discount'];
+
+                        @endphp
                     @else
-                        <div class="d-flex gap-2 mb-2 invoice-item">
-                            {{-- <div class="col-6"><input name="items[0][description]" class="form-control items-description"></div>
-            <div class="col-2"><input name="items[0][unit_price]" type="number" class="form-control"></div>
-            <div class="col-2"><input name="items[0][quantity]" type="number" class="form-control" value="1"></div>
-            <div class="col-2"><button type="button" class="btn btn-danger remove-item">X</button></div> --}}
-                            <select name="items[0][quote_master_id]" class="form-select sku-select">
-                                <option value="">Select SKU</option>
-                                @foreach ($quoteMasters as $m)
-                                    <option value="{{ $m->id }}">{{ $m->sku }}</option>
-                                @endforeach
-                            </select>
+                        {{-- Default row when invoice not exist --}}
+                        <div class="row gap-1 m-2 invoice-item">
+                            <input type="hidden" name="items[0][sku]">
+                            <div class="col-1">
+                                <select name="items[0][quote_master_id]" class="form-select col-2 sku-select">
+                                    <option value="">Select SKU</option>
+                                    @foreach ($quoteMasters as $m)
+                                        <option value="{{ $m->id }}">{{ $m->sku }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
 
-                            <input name="items[0][description]" class="form-control desc-input">
-                            <input name="items[0][unit_price]" class="form-control price-input">
-                            <input name="items[0][quantity]" class="form-control qty-input">
-                            <input name="items[0][tax]" class="form-control tax-input">
+                            <div class="col-3">
+                                <input name="items[0][description]" class="form-control desc-input">
+                            </div>
+                            <div class="col">
+                                <input name="items[0][unit_price]" class="form-control price-input">
+                            </div>
+                            <div class="col">
+                                <input name="items[0][quantity]" class="form-control qty-input">
+                            </div>
+                            <div class="col">
+                                <input name="items[0][tax]" class="form-control tax-input">
+                            </div>
 
-                            <div class="col-2"><button type="button" class="btn btn-danger remove-item">X</button></div>
-                            <span class="line-total">0.00</span>
+                            <div class="col d-flex justify-content-around align-items-center">
+                                <button type="button" class="btn btn-danger remove-item w-25">X</button>
+                                <span class="line-total text-end w-75">0.00</span>
+                            </div>
                         </div>
                     @endif
+
+
                 </div>
 
-                <button type="button" id="addItem" class="btn btn-sm btn-primary">Add Item</button>
-                <div class="mt-3 text-end">
-                    <p>Subtotal: <span id="subTotal">0.00</span></p>
-                    <p>Tax Total: <span id="taxTotal">0.00</span></p>
-
-                    <label>Discount</label>
-                    <input id="discount" name="discount" class="form-control w-25 d-inline"
-                        value="{{ @$invoice->discount ?? 0 }}">
-
-                    <p class="mt-2 fw-bold">
-                        Grand Total: <span id="grandTotal">0.00</span>
-                    </p>
+                <div class="align-items-end d-flex flex-column mt-3 text-end gap-2">
+                    <div class="w-25 d-flex justify-content-around align-items-center">
+                        <span class="w-25">Subtotal:</span>
+                        <span id="subTotal" class="text-end w-75">{{ $total['sub'] }}</span>
+                    </div>
+                    
+                    <div class="w-25 d-flex justify-content-around align-items-center">
+                        <span class="w-25">Tax Total:</span>
+                        <span id="taxTotal" class="text-end w-75">{{ $total['tax'] }}</span>
+                    </div>
+                    
+                    <div class="w-25 d-flex gap-2 justify-content-around align-items-center">
+                        <span class="w-25">Discount:</span>
+                        <input id="discount" name="discount" class="form-control d-inline text-end w-75"
+                        value=" {{ $total['discount'] }}">
+                    </div>
+                    
+                    <div class="w-25 d-flex justify-content-around align-items-center">
+                        <span class="w-25">Grand Total:</span>
+                        <span id="grandTotal" class="text-end w-75">{{ $total['grand'] }}</span>
+                    </div>
+                    
                 </div>
                 <hr>
                 <div class="mb-3">
@@ -112,7 +203,8 @@
 
                     <div class="col-md-2">
                         <label>Interval</label>
-                        <input name="recurring_interval" class="form-control" value="{{ @$invoice->recurring_interval }}">
+                        <input name="recurring_interval" class="form-control"
+                            value="{{ @$invoice->recurring_interval }}">
                     </div>
 
                     <div class="col-md-2">
@@ -149,7 +241,12 @@
         </div>
     </div>
 @endsection
-
+{{-- <select name="items[${counter.length}][quote_master_id]" class="form-select sku-select">
+                        <option value="">Select SKU</option>
+                        @foreach ($quoteMasters as $m)
+                            <option value="{{ $m->id }}">{{ $m->sku }}</option>
+                        @endforeach
+                    </select> --}}
 @section('scripts')
     <script>
         // minimal dynamic items handlers
@@ -158,21 +255,31 @@
                 counter = document.querySelectorAll('.invoice-item') || 0
                 const wrapper = document.getElementById('itemsWrapper');
                 const row = document.createElement('div');
-                row.className = 'd-flex gap-2 mb-2 invoice-item';
+                row.className = 'row gap-1 m-2 invoice-item';
                 row.innerHTML = `
-                    <select name="items[${counter.length}][quote_master_id]" class="form-select sku-select">
-                        <option value="">Select SKU</option>
-                        @foreach ($quoteMasters as $m)
-                            <option value="{{ $m->id }}">{{ $m->sku }}</option>
-                        @endforeach
-                    </select>
+                    
+                        <div class="col-1">
+                            <input type="hidden" name="items[${counter.length}][sku]">
+                            <input type="hidden" name="items[${counter.length}][quote_master_id]">
+                        </div>
 
-                    <input name="items[${counter.length}][description]" class="form-control desc-input">
-                    <input name="items[${counter.length}][unit_price]" class="form-control price-input">
-                    <input name="items[${counter.length}][quantity]" class="form-control qty-input">
-                    <input name="items[${counter.length}][tax]" class="form-control tax-input">
-                    <div class="col-2"><button type="button" class="btn btn-danger remove-item">X</button></div>
-                    <span class="line-total">0.00</span>
+                        <div class="col-3">
+                            <input name="items[${counter.length}][description]" class="form-control desc-input">
+                        </div>
+                        <div class="col">
+                            <input name="items[${counter.length}][unit_price]" class="form-control price-input">
+                        </div>
+                        <div class="col">
+                            <input name="items[${counter.length}][quantity]" class="form-control qty-input">
+                        </div>
+                        <div class="col">
+                            <input name="items[${counter.length}][tax]" class="form-control tax-input">
+                        </div>
+
+                        <div class="col d-flex justify-content-around align-items-center">
+                            <button type="button" class="btn btn-danger remove-item w-25">X</button>
+                            <span class="line-total text-end w-75">0.00</span>
+                        </div>
                 `;
                 wrapper.appendChild(row);
             }
@@ -272,7 +379,7 @@
                 li.onclick = () => {
                     document.getElementById("project_id").value = p.id;
                     bootstrap.Modal.getInstance(document.getElementById("projectAttachModal"))
-                    .hide();
+                        .hide();
                 };
                 box.appendChild(li);
             });

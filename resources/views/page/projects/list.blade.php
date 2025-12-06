@@ -28,7 +28,7 @@
                 <select id="filter_assignee" class="form-control">
                     <option value="">All Assignees</option>
                     @foreach($users as $u)
-                        <option value="{{ $u->id }}">{{ $u->name }}</option>
+                        <option value="{{ $u->id }}">{{ $u->fname }} {{ $u->lname }}</option>
                     @endforeach
                 </select>
             </div>
