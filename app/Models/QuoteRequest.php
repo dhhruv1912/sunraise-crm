@@ -90,6 +90,11 @@ class QuoteRequest extends Model
         return $this->belongsTo(Customer::class, 'customer_id');
     }
 
+    public function projects()
+    {
+        return $this->hasMany(\App\Models\Project::class);
+    }
+
     public function history()
     {
         return $this->hasMany(QuoteRequestHistory::class, 'quote_request_id')

@@ -114,7 +114,7 @@ function renderHistory(history) {
             <div class="timeline-entry">
                 <strong>${h.action}</strong><br>
                 ${h.message}<br>
-                <small>${h.datetime} — by ${h.user}</small>
+                <small>${h.updated_at} — by ${h.user.fname} ${h.user.lname}</small>
             </div>
         `;
     });

@@ -203,7 +203,7 @@ class LeadController extends Controller
      */
     public function viewJson($id)
     {
-        $lead = Lead::with(['quoteRequest', 'history', 'creator', 'assignedUser','customer'])->findOrFail($id);
+        $lead = Lead::with(['quoteRequest', 'history.user', 'creator', 'assignedUser','customer'])->findOrFail($id);
 
         $assignedUser = $lead->assigned_to ? User::find($lead->assigned_to) : null;
 

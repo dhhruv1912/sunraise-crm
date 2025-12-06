@@ -81,6 +81,8 @@ class Project extends Model
         'invoice_date' => 'date',
     ];
 
+    protected $with = ['quoteRequest'];
+
     public const BADGES = [];
     /**
      * Status Label Mapping
@@ -164,20 +166,13 @@ class Project extends Model
         return $this->hasMany(ProjectHistory::class, 'project_id')->latest();
     }
 
+    public function quoteRequest()
+    {
+        return $this->belongsTo(\App\Models\QuoteRequest::class);
+    }
+
     public function documents()
     {
         return $this->morphMany(Document::class, 'entity');
-    }
-
-    public function quoteRequest()
-    {
-        return $this->hasOneThrough(
-            QuoteRequest::class,
-            Lead::class,
-            'id',                // Lead.id
-            'id',                // QuoteRequest.id
-            'lead_id',           // Project.lead_id
-            'quote_request_id'   // Lead.quote_request_id
-        );
     }
 }
