@@ -13,6 +13,7 @@ class Quotation extends Model
 
     protected $fillable = [
         'quote_request_id',
+        'lead_id',
         'quotation_no',
         'pdf_path',
         'base_price',
@@ -31,14 +32,14 @@ class Quotation extends Model
         'sent_at' => 'datetime',
     ];
 
-    /**
-     * Quotation belongs to a Quote Request
-     */
-    public function quoteRequest()
-    {
-        return $this->belongsTo(QuoteRequest::class, 'quote_request_id');
-    }
-
+    // /**
+    //  * Quotation belongs to a Quote Request
+    //  */
+    // public function quoteRequest()
+    // {
+    //     return $this->belongsTo(QuoteRequest::class, 'quote_request_id');
+    // }
+    protected $with = ['sentBy'];
     /**
      * User who sent the quotation
      */
@@ -82,7 +83,7 @@ class Quotation extends Model
 
     public function lead()
     {
-        return $this->hasOne(Lead::class, 'quotation_id');
+        return $this->belongsTo(Lead::class, 'lead_id');
     }
 
     public function project()

@@ -1,0 +1,49 @@
+.calendar {
+    height: 501px;
+    perspective: 1000px;
+    transform-style: preserve-3d;
+    transition: .9s;
+}
+
+.front, .back {
+    backface-visibility: hidden;
+}
+
+.back {
+    transform: rotateY(180deg);
+}
+
+.flip {
+    transform: rotateY(180deg);
+}
+
+/* Calendar-specific (no Bootstrap equivalent) */
+.weeks span {
+    padding: 10px;
+}
+
+.weeks span.last-month,
+.weeks span.next-month {
+    opacity: .4;
+}
+
+.weeks span:hover:not(.last-month) {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.event::after {
+    content: '•';
+    color: #0d6efd;
+    font-size: 1.4em;
+    position: absolute;
+    right: -4px;
+    top: -4px;
+}
+
+.calendar .cell{
+    width: calc(100% / 7);
+}
+.cell.squere{
+    aspect-ratio: 1;
+}

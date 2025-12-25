@@ -9,7 +9,6 @@
         <a href="{{ route('users.create') }}" class="btn btn-primary">+ New</a>
       </div>
     </div>
-
     <div class="table-responsive p-3">
       <table class="table table-hover">
         <thead>
@@ -19,13 +18,22 @@
             <th>Status</th>
             <th>Mobile</th>
             <th>Email</th>
-            <th width="150">Actions</th>
+            <th>Actions</th>
           </tr>
         </thead>
-        <tbody>
-          @foreach($users as $u)
+        <tbody id="user-body">
+          {{-- @foreach($users as $u)
             <tr>
-              <td>{{ $u->fname }} {{ $u->lname }}</td>
+              <td class="d-flex align-items-center gap-2">
+                <div class="avatar {{ in_array($u->id,$sessions) ? "avatar-online" : "avatar-offline" }}">
+                  <img src="https://api.dicebear.com/7.x/adventurer-neutral/svg?seed={{ $u->fname }}+{{ $u->lname }}"
+                      alt="Avatar"
+                      class="w-px-40 h-auto rounded-circle">
+                </div>
+                <span>
+                  {{ $u->fname }} {{ $u->lname }}
+                </span>
+              </td>
               <td>
                 @foreach($u->getRoleNames() as $r)
                   <span class="badge bg-secondary">{{ $r }}</span>
@@ -38,24 +46,25 @@
               </td>
               <td>{{ $u->mobile }}</td>
               <td>{{ $u->email }}</td>
-              <td class="d-flex gap-2">
+              <td class="d-flex gap-1 py-3">
                 <a href="{{ route('users.edit', $u->id) }}" class="btn btn-sm btn-primary">Edit</a>
 
-                <button class="btn btn-sm btn-outline-secondary assign-role-btn"
-                        data-user="{{ $u->id }}">Assign Role</button>
+                 <button class="btn btn-sm btn-outline-secondary assign-role-btn"
+                        data-user="{{ $u->id }}">Assign Role</button> 
 
-                <form action="{{ route('users.delete', $u->id) }}" method="POST" class="d-inline">
+                <form action="{{ route('users.delete', $u->id) }}" method="POST" >
                   @csrf @method('DELETE')
                   <button onclick="return confirm('Delete user?')" class="btn btn-sm btn-danger">Delete</button>
                 </form>
               </td>
             </tr>
-          @endforeach
+          @endforeach --}}
         </tbody>
       </table>
 
-      <div class="p-3">
-        {{ $users->links() }}
+      <div class="p-3" id="user-pagination">
+        <ul id="pagination-ul"></ul>
+        {{-- {{ $users->links() }} --}}
       </div>
     </div>
   </div>
@@ -65,8 +74,13 @@
 @endsection
 
 @section('scripts')
+<script>
+  window.roleNames = @json($role);
+  console.log(window.roleNames);
+  
+</script>
 <!-- include your existing user.js (uploaded) -->
-<script src="/mnt/data/user.js"></script>
+<script src="{{ asset('assets/js/page/user.js') }}"></script>
 <!-- roles assign ajax -->
 <script src="{{ asset('assets/js/page/roles-assign.js') }}"></script>
 @endsection

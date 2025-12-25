@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\CustomerActivity;
 use App\Models\CustomerNote;
+use App\Models\Document;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class CustomerController extends Controller
 {
@@ -86,14 +89,43 @@ class CustomerController extends Controller
     public function update(Request $request, $id)
     {
         $data = $this->validatePayload($request);
-
         $customer = Customer::findOrFail($id);
-        $customer->update($data);
+        $customer->fill($data);
+
+        foreach ($request->allFiles() as $key => $file) {
+            if (!($file instanceof \Illuminate\Http\UploadedFile)) {
+                continue;
+            }
+            $existing_doc = Document::where('type',$key . '-image')->where('project_id',$data['project_id'])->first();
+            if($existing_doc && $existing_doc->path && Storage::disk('public')->exists($existing_doc->path)){
+                Storage::disk('public')->delete($existing_doc->path);
+                $existing_doc->delete();
+            }
+            $path = $file->store('customer', 'public');
+
+            $doc = new Document();
+            $doc->entity_type = Customer::class;
+            $doc->entity_id   = $customer->id;
+            $doc->project_id  = $data['project_id'] ?? null;
+            $doc->type        = $key . '-image';
+            $doc->file_name   = $file->getClientOriginalName();
+            $doc->file_path   = $path;
+            $doc->mime_type   = $file->getClientMimeType();
+            $doc->size        = $file->getSize();
+            $doc->uploaded_by = Auth::id();
+            $doc->save();
+            
+            if ($customer->hasAttribute($key)) {
+                $customer->{$key} = $doc->id;
+            }
+        }
+
+        $customer->save();
 
         $this->logActivity($customer->id, 'updated', 'Customer updated');
 
-        return redirect()->route('customers.index')
-            ->with('success', 'Customer updated');
+        // return redirect()->route('customers.index')
+        //     ->with('success', 'Customer updated');
     }
 
     /* ---------------------------------------------------------
@@ -197,14 +229,23 @@ class CustomerController extends Controller
      --------------------------------------------------------- */
     private function validatePayload(Request $request)
     {
-        return $request->validate([
+        $rules = [
             'name'             => 'required|string|max:255',
             'email'            => 'nullable|email|max:255',
             'mobile'           => 'nullable|string|max:255',
             'alternate_mobile' => 'nullable|string|max:255',
             'address'          => 'nullable|string',
             'note'             => 'nullable|string',
-        ]);
+        ];
+
+        $v = Validator::make($request->all(), $rules);
+        if ($v->fails()) {
+            return [
+                'status' => false,
+                'errors' => $v->errors()
+            ];
+        }
+        return $request->all();
     }
 
     /* ---------------------------------------------------------

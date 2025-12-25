@@ -12,13 +12,12 @@
         <form action="{{ isset($lead) ? route('marketing.update', $lead->id) : route('marketing.store') }}"
               method="POST">
             @csrf
-
             <div class="card-body row g-3">
 
                 <div class="col-md-4 mb-3 position-relative">
                     <label>Select Customer</label>
                     <input type="text" class="form-control" id="customerSearch" autocomplete="off" placeholder="Search Customer..." value="{{ ($lead->customer ?   $lead->customer->name ." (" . $lead->customer->mobile . ")" : "") }}">
-                    <input type="hidden" name="customer_id" id="customer_id">
+                    <input type="hidden" name="customer_id" id="customer_id" value="{{ old('customer_id', $lead->customer->id ?? '') }}">
                 </div>
 
                 <div class="col-md-4">

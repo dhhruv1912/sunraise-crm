@@ -12,8 +12,10 @@
 
             <form action="{{ route('quote_master.import') }}" method="POST" enctype="multipart/form-data" class="d-flex align-items-center me-2">
                 @csrf
-                <input type="file" name="file" required class="form-control form-control-sm me-2" style="width:220px;">
-                <button type="submit" class="btn btn-warning btn-sm">Import</button>
+                <div class="input-group">
+                    <input type="file" class="form-control"  name="file" required>
+                    <button type="submit" class="btn btn-warning">Import</button>
+                </div>
             </form>
         </div>
     </div>
@@ -40,7 +42,7 @@
             <table class="table table-bordered table-sm">
                 <thead class="table-light">
                     <tr>
-                        <th style="width:140px">SKU</th>
+                        <th style="width:240px">SKU</th>
                         <th>Module</th>
                         <th style="width:90px">KW</th>
                         <th style="width:90px">Count</th>

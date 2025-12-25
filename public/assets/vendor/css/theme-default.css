@@ -223,7 +223,8 @@ button.list-group-item-primary.active {
 }
 
 .nav-pills .nav-link.active, .nav-pills .nav-link.active:hover, .nav-pills .nav-link.active:focus {
-  background-color: #9055fd;
+  background-color: #8a8d93;
+  /* background-color: #9055fd; */
   color: #fff;
 }
 

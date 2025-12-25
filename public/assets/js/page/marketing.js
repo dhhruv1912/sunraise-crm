@@ -62,7 +62,7 @@ function renderLeadRows(rows) {
                 <td>${row.next_followup_at || '—'}</td>
 
                 <td>
-                    <button class="btn btn-sm btn-info" onclick="viewLead(${row.id})">View</button>
+                    <a href="/marketing/${row.id}/view" class="btn btn-sm btn-info">View</a>
                     <a href="/marketing/${row.id}/edit" class="btn btn-sm btn-primary">Edit</a>
                     <button class="btn btn-sm btn-danger" onclick="deleteLead(${row.id})">Delete</button>
                 </td>
@@ -121,27 +121,6 @@ function renderHistory(history) {
 
     container.innerHTML = html;
 }
-async function viewLead(id) {
-    const res = await fetch(`/marketing/${id}/view-json`);
-    const data = await res.json();
-
-    document.getElementById("modal-id").textContent = data.id;
-    document.getElementById("modal-lead-code").textContent = data.lead_code;
-    document.getElementById("modal-name").textContent = data?.customer?.name;
-    document.getElementById("modal-number").textContent = data?.customer?.mobile;
-    document.getElementById("modal-email").textContent = data?.customer?.email;
-    document.getElementById("modal-assigned").textContent = data?.assigned_user?.fname + " " + data?.assigned_user?.lname ?? '—';
-    document.getElementById("modal-status").textContent = window.LEAD_STATUS[data.status];
-    document.getElementById("modal-remarks").textContent = data.remarks ?? '—';
-    // document.getElementById("create-project").dataset.id = data.id;
-
-    // document.getElementById("modal-history").innerHTML = data.history_html;
-
-    renderHistory(data.history);
-
-    new bootstrap.Modal(document.getElementById('leadViewModal')).show();
-}
-
 async function deleteLead(id) {
     if (!confirm("Are you sure?")) return;
 
@@ -175,5 +154,5 @@ async function createProject() {
     alert("Project created successfully!");
 
     // Redirect to project edit page
-    window.location.href = json.project_url;
+    // window.location.href = json.project_url;
 }

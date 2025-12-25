@@ -12,10 +12,14 @@ class SettingsController extends Controller
      * Load settings page by module.
      * URL: /settings/{module}
      */
-    public function load(Request $request, $module)
+    public function load(Request $request, $module, $userId = null)
     {
         // Load all settings that start with "<module>_"
-        $settings = Settings::where('name', 'like', "{$module}_%")->orderBy('id')->get();
+        $settings = Settings::where('name', 'like', "{$module}_%");
+        if ($userId != null) {
+            $settings = $settings->where("user_id",$userId);
+        }
+        $settings = $settings->orderBy('id')->get();
 
         return view('page.settings', compact('settings', 'module'));
     }

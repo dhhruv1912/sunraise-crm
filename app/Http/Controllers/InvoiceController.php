@@ -73,7 +73,6 @@ class InvoiceController extends Controller
             'payments',
             'customer',
             'project.lead',
-            'project.documents',
             'creator',
             'sender',
         ])->findOrFail($id);
@@ -111,7 +110,7 @@ class InvoiceController extends Controller
     public function store(Request $request)
     {
         $rules = [
-            'project_id' => 'nullable|exists:projects,id',
+            'project_id' => 'nullable|exists:projects,id|unique:invoices,project_id',
             'invoice_no' => 'nullable|string|unique:invoices,invoice_no',
             'invoice_date' => 'nullable|date',
             'due_date' => 'nullable|date',
@@ -133,12 +132,13 @@ class InvoiceController extends Controller
         if ($v->fails()) {
             return back()->withErrors($v)->withInput();
         }
-
+        
         $payload = $request->only([
             'project_id', 'invoice_no', 'invoice_date', 'due_date',
             'notes', 'discount', 'is_recurring', 'recurring_type',
             'recurring_interval', 'recurring_end_at',
         ]);
+        dd($payload);
 
         /** Auto-assign invoice_no */
         if (empty($payload['invoice_no'])) {
@@ -176,7 +176,7 @@ class InvoiceController extends Controller
         foreach ($request->items as $it) {
             InvoiceItem::create([
                 'invoice_id' => $invoice->id,
-                'quote_master_id' => $this->resolveSku(@$it['sku']),
+                'quote_master_id' => @$it['quote_master_id'],
                 'description' => $it['description'],
                 'unit_price' => $it['unit_price'],
                 'quantity' => $it['quantity'],
@@ -220,7 +220,7 @@ class InvoiceController extends Controller
     public function update(Request $request, $id)
     {
         $invoice = Invoice::findOrFail($id);
-
+        $project = Project::findOrFail($invoice->project_id);
         $rules = [
             'invoice_date' => 'nullable|date',
             'due_date' => 'nullable|date',
@@ -245,23 +245,34 @@ class InvoiceController extends Controller
         }
 
         $payload = $request->only([
-            'invoice_date', 'due_date', 'notes', 'discount', 'status',
+            'invoice_date', 'due_date', 'notes', 'discount', 'status','project_id'
         ]);
-
+        
         $payload['sub_total'] = $sub;
         $payload['tax_total'] = $tax;
         $payload['total'] = $sub + $tax - ($payload['discount'] ?? 0);
         $payload['balance'] = $payload['total'] - $invoice->paid_amount;
-
-        $invoice->update($payload);
-
+        
+        $lastemidate   = array_key_last($project->emi);
+        $lastemiamount = $project->emi[$lastemidate];
+        $all_amount = 0;
+        foreach ($project->emi as $date => $amount) {
+            $all_amount = $all_amount + $amount;
+        }
+        $emi = $project->emi;
+        $emi[$lastemidate] = $payload['total'] - $all_amount + $lastemiamount;
+        $project->emi = $emi;
+        $project->finalize_price = $payload['total'];
+        
         /** Update items */
+        $project->save();
+        $invoice->update($payload);
         InvoiceItem::where('invoice_id', $invoice->id)->delete();
 
         foreach ($request->items as $it) {
             InvoiceItem::create([
                 'invoice_id' => $invoice->id,
-                'quote_master_id' => $this->resolveSku($it['sku']),
+                'quote_master_id' => @$it['quote_master_id'],
                 'description' => $it['description'],
                 'unit_price' => $it['unit_price'],
                 'quantity' => $it['quantity'],
@@ -269,7 +280,6 @@ class InvoiceController extends Controller
                 'line_total' => ($it['unit_price'] * $it['quantity']) + ($it['tax'] ?? 0),
             ]);
         }
-
         return redirect()->route('invoices.index')->with('success', 'Invoice updated successfully');
     }
 
@@ -287,14 +297,16 @@ class InvoiceController extends Controller
     public function recordPayment(Request $request, $id)
     {
         $invoice = Invoice::findOrFail($id);
-
         $request->validate([
             'amount' => 'required|numeric|min:1',
             'method' => 'nullable|string',
             'reference' => 'nullable|string',
             'paid_at' => 'nullable|date',
         ]);
-
+        $meta = [];
+        if($request->emi_date){
+            $meta['emi_date'] = $request->emi_date;
+        }
         InvoicePayment::create([
             'invoice_id' => $invoice->id,
             'amount' => $request->amount,
@@ -302,6 +314,7 @@ class InvoiceController extends Controller
             'reference' => $request->reference,
             'paid_at' => $request->paid_at,
             'received_by' => Auth::id(),
+            'meta' => $meta
         ]);
 
         $invoice->paid_amount += $request->amount;
@@ -323,12 +336,13 @@ class InvoiceController extends Controller
      --------------------------------------------------------- */
     private function resolveSku($sku)
     {
+        dump($sku);
         if (! $sku) {
             return null;
         }
 
-        $row = QuoteMaster::where('sku', $sku)->first();
-
+        $row = QuoteMaster::where('id', $sku)->select('id','sku')->first();
+        dump( $row);
         return $row ? $row->id : null;
     }
 

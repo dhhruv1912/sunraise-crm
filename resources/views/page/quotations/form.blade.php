@@ -18,11 +18,11 @@
 
                 <div class="mb-3">
                     <label class="form-label">Quote Request</label>
-                    <select name="quote_request_id" id="quote_request_id" class="form-select">
+                    <select name="lead_id" id="lead_id" class="form-select">
                         <option value="">-- none --</option>
-                        @foreach ($quoteRequests as $qr)
-                            <option value="{{ $qr->id }}" @if (isset($quotation) && $quotation->quote_request_id == $qr->id) selected @endif>
-                                #{{ $qr->id }} — {{ $qr->customer->name }} ({{ $qr->customer->mobile }})
+                        @foreach ($leads as $ld)
+                            <option value="{{ $ld->id }}" @if (isset($quotation) && $quotation->lead_id == $ld->id) selected @endif>
+                                #{{ $ld->lead_code }} — {{ $ld->customer->name }} ({{ $ld->customer->mobile }})
                             </option>
                         @endforeach
                     </select>
@@ -67,49 +67,49 @@
 @endsection
 @section('scripts')
     <script>
-        document.getElementById('quote_request_id').addEventListener('change', (e) => loadQuoteRequest(e.target.value));
+        document.getElementById('lead_id').addEventListener('change', (e) => loadQuoteRequest(e.target.value));
         document.getElementById('discount').addEventListener('keyup', (e) => discount(e.target.value));
         let allData = {}
         async function loadQuoteRequest(val) {
             if(!val) return
-            const res = await fetch(`/quote/requests/api/view/${val}`);
+            const res = await fetch(`/marketing/api/view/${val}`);
             const data = await res.json();
-            document.getElementById('base_price').value = data.quote.payable
-            document.getElementById('final_price').value = data.quote.payable
+            document.getElementById('base_price').value = data.quote_master.payable
+            document.getElementById('final_price').value = data.quote_master.payable
             allData = data
-            allData.quote.final_price = data.quote.payable
+            allData.quote_master.final_price = data.quote_master.payable
             updateMeta(allData)
 
         }
 
         function discount(val){
-            allData.quote.discount = val
-            allData.quote.final_price = allData.quote.payable - val
-            document.getElementById('final_price').value = allData.quote.payable - val
+            allData.quote_master.discount = val
+            allData.quote_master.final_price = allData.quote_master.payable - val
+            document.getElementById('final_price').value = allData.quote_master.payable - val
             updateMeta(allData)
         }
 
     function updateMeta(data){
         meta_value = "{\n"
-        meta_value += `  "module" : "${data.quote.module}",\n`
-        meta_value += `  "kw" : "${data.quote.kw}",\n`
-        meta_value += `  "module"_count : ${data.quote.module_count},\n`
-        meta_value += `  "value" : ${data.quote.value},\n`
-        meta_value += `  "taxes" : ${data.quote.taxes},\n`
-        meta_value += `  "metering"_cost : ${data.quote.metering_cost},\n`
-        meta_value += `  "mcb"_ppa : ${data.quote.mcb_ppa},\n`
-        meta_value += `  "payable" : ${data.quote.payable},\n`
-        meta_value += `  "subsidy" : ${data.quote.subsidy},\n`
-        meta_value += `  "projected" : ${data.quote.projected},\n`
-        if(data.quote.discount && data.quote.discount > 0){
-            meta_value += `  "discount" : ${data.quote.discount},\n`
+        meta_value += `  "module" : "${data.quote_master.module}",\n`
+        meta_value += `  "kw" : "${data.quote_master.kw}",\n`
+        meta_value += `  "module"_count : ${data.quote_master.module_count},\n`
+        meta_value += `  "value" : ${data.quote_master.value},\n`
+        meta_value += `  "taxes" : ${data.quote_master.taxes},\n`
+        meta_value += `  "metering"_cost : ${data.quote_master.metering_cost},\n`
+        meta_value += `  "mcb"_ppa : ${data.quote_master.mcb_ppa},\n`
+        meta_value += `  "payable" : ${data.quote_master.payable},\n`
+        meta_value += `  "subsidy" : ${data.quote_master.subsidy},\n`
+        meta_value += `  "projected" : ${data.quote_master.projected},\n`
+        if(data.quote_master.discount && data.quote_master.discount > 0){
+            meta_value += `  "discount" : ${data.quote_master.discount},\n`
         }
-        if(data.quote.final_price && data.quote.final_price > 0){
-            meta_value += `  "final_price" : ${data.quote.final_price},\n`
+        if(data.quote_master.final_price && data.quote_master.final_price > 0){
+            meta_value += `  "final_price" : ${data.quote_master.final_price},\n`
         }
         meta_value += "}"
         document.getElementById('meta2').value = meta_value
-        document.getElementById('meta').value = JSON.stringify(data.quote)
+        document.getElementById('meta').value = JSON.stringify(data.quote_master)
     }
     </script>
 @endsection

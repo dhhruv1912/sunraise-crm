@@ -1,7 +1,6 @@
 <?php
 
 use App\Helpers\Menu;
-
 return [
 
     [
@@ -52,112 +51,95 @@ return [
         ],
     ],
 
-
     [
-        'title' => 'Quote Manager',
-        'icon' => 'mdi mdi-chart-bubble',
-        'permission' => 'view quotes',
-        'open' => Menu::open('quote'),
+        'title' => 'Vendors',
+        'icon' => 'mdi mdi-account-group',
+        'permission' => 'view tally',
+        'open' => Menu::open('vendors'),
         'children' => [
             [
                 'title' => 'List',
-                'route' => 'quote_master.index',
-                'permission' => 'view quotes',
-                'active' => Menu::is('quote', 'master'),
-            ],
-            [
-                'title' => 'Requests',
-                'route' => 'quote_requests.index',
-                'permission' => 'manage quotes',
-                'active' => Menu::is('quote', 'requests'),
+                'route' => 'vendors.index',
+                'permission' => 'view ledger',
+                'active' => Menu::is('vendors', ''),
             ],
             [
                 'title' => 'Settings',
-                'route' => ['Setting', 'quote'],
-                'permission' => 'manage quotes',
-                'active' => Menu::is('quote', 'setting'),
-            ],
-        ],
-    ],
-
-
-
-    [
-        'title' => 'Marketing',
-        'icon' => 'mdi mdi-bullseye-arrow',
-        'permission' => 'view marketing',
-        'open' => Menu::open('marketing') || Menu::open('quotations'),
-        'children' => [
-            [
-                'title' => 'Lead',
-                'route' => 'marketing.index',
-                'permission' => 'view marketing',
-                'active' => Menu::is('marketing', ''),
-            ],
-            [
-                'title' => 'Quotation',
-                'route' => 'quotations.index',
-                'permission' => 'view marketing',
-                'active' => Menu::is('quotations', ''),
-            ],
-            [
-                'title' => 'Settings',
-                'route' => ['Setting', 'marketing'],
-                'permission' => 'manage marketing',
-                'active' => Menu::is('marketing', 'setting'),
-            ],
-        ],
-    ],
-    [
-        'title' => 'Projects',
-        'icon' => 'mdi mdi-solar-power-variant',
-        'permission' => 'view projects',
-        'open' => Menu::open('projects') || Menu::open('documents') || Menu::open('customers'),
-        'children' => [
-            [
-                'title' => 'List',
-                'route' => 'projects.index',
-                'permission' => 'view projects',
-                'active' => Menu::is('projects', ''),
-            ],
-            [
-                'title' => 'Documents',
-                'route' => 'documents.index',
-                'permission' => 'view documents',
-                'active' => Menu::is('documents', ''),
-            ],
-            [
-                'title' => 'Customers',
-                'route' => 'customers.index',
-                'permission' => 'view customers',
-                'active' => Menu::is('customers', ''),
-            ],
-            [
-                'title' => 'Settings',
-                'route' => ['Setting', 'projects'],
-                'permission' => 'manage projects',
-                'active' => Menu::is('projects', 'setting'),
+                'route' => ['Setting', 'tally'],
+                'permission' => 'manage tally',
+                'active' => Menu::is('tally', 'setting'),
             ],
         ],
     ],
 
     [
-        'title' => 'Billing',
-        'icon' => 'mdi mdi-cash-sync',
-        'permission' => 'view billing',
-        'open' => Menu::open('billing'),
+        'title' => 'Warehouses',
+        'icon' => 'mdi mdi-home-silo-outline',
+        'permission' => 'view tally',
+        'open' => Menu::open('warehouse'),
         'children' => [
             [
                 'title' => 'List',
-                'route' => 'invoices.index',
-                'permission' => 'view billing',
-                'active' => Menu::is('billing', 'invoices'),
+                'route' => 'warehouse.index',
+                'permission' => 'view ledger',
+                'active' => Menu::is('warehouse', ''),
             ],
             [
                 'title' => 'Settings',
-                'route' => ['Setting', 'billing'],
-                'permission' => 'manage billing',
-                'active' => Menu::is('billing', 'setting'),
+                'route' => ['Setting', 'warehouse'],
+                'permission' => 'manage tally',
+                'active' => Menu::is('warehouse', 'setting'),
+            ],
+        ],
+    ],
+
+    [
+        'title' => 'Stocks',
+        'icon' => 'mdi mdi-solar-panel-large',
+        'permission' => 'view tally',
+        'open' => Menu::open('panels') || Menu::open('item-categories') || Menu::open('batches') || Menu::open('items') || Menu::open('panels'),
+        'children' => [
+            [
+                'title' => 'Add',
+                'route' => 'panels.receive.uploadPage',
+                'permission' => 'view ledger',
+                'active' => Menu::is('panels', 'receive'),
+            ],
+            [
+                'title' => 'Categories',
+                'route' => 'item_categories.index',
+                'permission' => 'view stocks',
+                'active' => Menu::is('item-categories'),
+            ],
+            [
+                'title' => 'Batches',
+                'route' => 'batches.index',
+                'permission' => 'view stocks',
+                'active' => Menu::is('batches'),
+            ],
+            [
+                'title' => 'Items',
+                'route' => 'items.index',
+                'permission' => 'view stocks',
+                'active' => Menu::is('items'),
+            ],
+            [
+                'title' => 'Panels',
+                'route' => 'panels.index',
+                'permission' => 'view stocks',
+                'active' => Menu::is('panels'),
+            ],
+            // [
+            //     'title' => 'Attachments',
+            //     'route' => ['Setting', 'tally'],
+            //     'permission' => 'manage tally',
+            //     'active' => Menu::is('tally', 'setting'),
+            // ],
+            [
+                'title' => 'Settings',
+                'route' => ['Setting', 'tally'],
+                'permission' => 'manage tally',
+                'active' => Menu::is('tally', 'setting'),
             ],
         ],
     ],

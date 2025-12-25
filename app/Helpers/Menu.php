@@ -50,4 +50,15 @@ class Menu
             return false;
         }
     }
+
+    public static function show(){
+        if (!app()->bound('request')) {
+            return false;
+        }
+        $request = app('request');
+        if (!$request instanceof Request) {
+            return false;
+        }
+        dd($request);
+    }
 }

@@ -55,7 +55,8 @@
                         <th>Project Code</th>
                         <th>Customer</th>
                         <th>Mobile</th>
-                        <th>KW</th>
+                        <th>Module</th>
+                        <th>On Hold</th>
                         <th>Assignee</th>
                         <th>Status</th>
                         <th>Created</th>

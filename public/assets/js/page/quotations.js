@@ -10,7 +10,12 @@ document.addEventListener("DOMContentLoaded", () => {
         currentPage = page;
         const q = encodeURIComponent(searchBox.value || '');
         const per = perPage.value || 20;
-        const url = `${window.QUOTE_ROUTES.ajax}?search=${q}&per_page=${per}&page=${page}`;
+        let url = ""
+        if(window.REQ_ID != ""){
+            url = `${window.QUOTE_ROUTES.ajax}/${window.REQ_ID}?search=${q}&per_page=${per}&page=${page}`;
+        }else{
+            url = `${window.QUOTE_ROUTES.ajax}?search=${q}&per_page=${per}&page=${page}`;
+        }
         const res = await fetch(url);
         const json = await res.json();
 
@@ -21,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function renderRows(rows) {
         let html = '';
         rows.forEach(row => {
-            const rq = row.quote_request || {};
+            const rq = row.lead || {};
             html += `<tr>
                 <td>${row.id}</td>
                 <td>${row.quotation_no}</td>
@@ -74,8 +79,12 @@ document.addEventListener("DOMContentLoaded", () => {
     load();
 
     // events
-    searchBox.addEventListener('input', () => load(1));
-    perPage.addEventListener('change', () => load(1));
+    if (searchBox && searchBox.length > 0) {
+        searchBox.addEventListener('input', () => load(1));
+    }
+    if (perPage && perPage.length > 0) {
+        perPage.addEventListener('change', () => load(1));
+    }
 
     // expose some actions globally
     window.generatePdf = async function(id) {
@@ -111,4 +120,29 @@ document.addEventListener("DOMContentLoaded", () => {
         alert(json.message || 'Deleted');
         load(currentPage);
     };
+document.getElementById("create-project").addEventListener("click",createProject)
+
+async function createProject() {
+    if (!confirm("Create project from this lead?")) return;
+    leadId = document.getElementById("create-project").dataset.id
+
+    const res = await fetch(`/marketing/${leadId}/create-project`, {
+        method: "POST",
+        headers: {
+            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+        }
+    });
+
+    const json = await res.json();
+
+    if (!json.status) {
+        alert(json.message);
+        return;
+    }
+
+    alert("Project created successfully!");
+
+    // Redirect to project edit page
+    // window.location.href = json.project_url;
+}
 });

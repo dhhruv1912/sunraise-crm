@@ -84,7 +84,7 @@
 
                 <div class="content-wrapper">
 
-                    <div class="container-fluid flex-grow-1 container-p-y">
+                    <div class="container-fluid flex-grow-1">
                         @yield('content')
                     </div>
                     @include('temp/footer')

@@ -1,36 +1,55 @@
 @extends('temp.common')
 
 @section('content')
-@php
-    $total = [
-        'sub' => 0,
-        'tax' => 0,
-        'grand' => 0,
-        'discount' => 0,
-    ];
-@endphp
+    @php
+        $total = [
+            'sub' => 0,
+            'tax' => 0,
+            'grand' => 0,
+            'discount' => 0,
+        ];
+    @endphp
+    @if ($errors->any())
+        @foreach ($errors->all() as $error)
+            <div class="alert alert-danger alert-dismissible" role="alert">
+                {{ $error }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endforeach
+    @endif
     <div class="card">
+
         <div class="card-header d-flex align-items-baseline justify-content-between">
             <h4>{{ @$invoice ? 'Edit Invoice' : 'New Invoice' }}</h4>
-            <button type="button" class="btn btn-sm btn-outline-primary" id="attachProjectBtn">
-                Attach Project
-            </button>
         </div>
         <div class="card-body">
             <form method="POST" action="{{ @$invoice ? route('invoices.update', $invoice->id) : route('invoices.store') }}">
                 @csrf
                 <input type="hidden" id="project_id" name="project_id"
                     value="{{ old('project_id', $invoice->project_id ?? '') }}">
-                <div class="mb-3">
-                    <label>Invoice Date</label>
-                    <input type="date" name="invoice_date" class="form-control"
-                        value="{{ old('invoice_date', @$invoice->invoice_date ? $invoice->invoice_date->format('Y-m-d') : '') }}"
-                        required>
-                </div>
-                <div class="mb-3">
-                    <label>Due Date</label>
-                    <input type="date" name="due_date" class="form-control"
-                        value="{{ old('due_date', @$invoice->due_date ? $invoice->due_date->format('Y-m-d') : '') }}">
+                <div class="row">
+                    <div class="mb-3 col-md-4">
+                        <label for="">Select Project</label>
+                        <input type="text" id="projectSearch" autocomplete="off" class="form-control @error('project_id') is-invalid @enderror"
+                             value="{{ @$invoice->project->project_code }}"
+                            placeholder="Search project...">
+                        @error('project_id')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                        <ul id="projectResults" class="list-group mt-2 position-absolute w-px-500 bg-white"></ul>
+                    </div>
+                    <div class="mb-3 col-md-4">
+                        <label>Invoice Date</label>
+                        <input type="date" name="invoice_date" class="form-control"
+                            value="{{ old('invoice_date', @$invoice->invoice_date ? $invoice->invoice_date->format('Y-m-d') : '') }}"
+                            required>
+                    </div>
+                    <div class="mb-3 col-md-4">
+                        <label>Due Date</label>
+                        <input type="date" name="due_date" class="form-control"
+                            value="{{ old('due_date', @$invoice->due_date ? $invoice->due_date->format('Y-m-d') : '') }}">
+                    </div>
+
                 </div>
 
                 <hr>
@@ -39,7 +58,7 @@
                     <button type="button" id="addItem" class="btn btn-sm btn-primary">Add Item</button>
                 </div>
                 <div id="itemsWrapper">
-                    <div class="row gap-1 m-2 invoice-item">
+                    <div class="row gap-1 my-2 invoice-item">
                         <div class="col-1 desc-input">SKU</div>
                         <div class="col-3 desc-input">Desc</div>
                         <div class="col price-input">Price</div>
@@ -49,9 +68,9 @@
                     </div>
                     @if (isset($invoice))
                         @foreach ($invoice->items as $id => $item)
-                            <div class="row gap-1 m-2 invoice-item">
-
-                                <input type="hidden" name="items[{{ $id }}][sku]" value="{{ $item->sku ?? '' }}">
+                            <div class="row gap-1 my-1 invoice-item">
+                                <input type="hidden" name="items[{{ $id }}][sku]"
+                                    value="{{ $item->quote_master_id ?? '' }}">
 
                                 {{-- SKU only shown for first row --}}
                                 <div class="col-1">
@@ -101,9 +120,10 @@
                                         class="line-total text-end w-75">{{ number_format($item->unit_price * $item->quantity + $item->tax, 2) }}</span>
                                 </div>
                                 @php
-                                    $total['sub'] = $total['sub'] + ($item->unit_price * $item->quantity);
+                                    $total['sub'] = $total['sub'] + $item->unit_price * $item->quantity;
                                     $total['tax'] = $total['tax'] + $item->tax;
-                                    $total['grand'] = $total['grand'] + $item->unit_price * $item->quantity + $item->tax;
+                                    $total['grand'] =
+                                        $total['grand'] + $item->unit_price * $item->quantity + $item->tax;
                                 @endphp
                             </div>
                         @endforeach
@@ -114,7 +134,7 @@
                         @endphp
                     @else
                         {{-- Default row when invoice not exist --}}
-                        <div class="row gap-1 m-2 invoice-item">
+                        <div class="row gap-1 my-1 invoice-item">
                             <input type="hidden" name="items[0][sku]">
                             <div class="col-1">
                                 <select name="items[0][quote_master_id]" class="form-select col-2 sku-select">
@@ -153,23 +173,23 @@
                         <span class="w-25">Subtotal:</span>
                         <span id="subTotal" class="text-end w-75">{{ $total['sub'] }}</span>
                     </div>
-                    
+
                     <div class="w-25 d-flex justify-content-around align-items-center">
                         <span class="w-25">Tax Total:</span>
                         <span id="taxTotal" class="text-end w-75">{{ $total['tax'] }}</span>
                     </div>
-                    
+
                     <div class="w-25 d-flex gap-2 justify-content-around align-items-center">
                         <span class="w-25">Discount:</span>
                         <input id="discount" name="discount" class="form-control d-inline text-end w-75"
-                        value=" {{ $total['discount'] }}">
+                            value=" {{ $total['discount'] }}">
                     </div>
-                    
+
                     <div class="w-25 d-flex justify-content-around align-items-center">
                         <span class="w-25">Grand Total:</span>
                         <span id="grandTotal" class="text-end w-75">{{ $total['grand'] }}</span>
                     </div>
-                    
+
                 </div>
                 <hr>
                 <div class="mb-3">
@@ -177,6 +197,8 @@
                     <textarea name="notes" class="form-control">{{ old('notes', @$invoice->notes ?? '') }}</textarea>
                 </div>
                 <hr>
+
+
                 <h5>Recurring Invoice</h5>
 
                 <div class="row g-2">
@@ -227,35 +249,89 @@
             </form>
         </div>
     </div>
-    <div class="modal fade" id="projectAttachModal">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5>Select Project</h5>
+    <div class="card mt-2">
+        <div class="card-body">
+            <h5>Record Payment</h5>
+            <form id="paymentForm" class="{{ @$invoice->status != 'paid' ? '' : 'd-none' }}">
+                @csrf
+                <input type="hidden" name="invoice_id" id="invoice_id"  value="{{ @$invoice->id }}">
+                <input type="hidden" name="emi_date" id="emi_date" value="">
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        @php
+                            $paidEmiDates = collect($invoice->payments ?? [])
+                                ->pluck('meta.emi_date')
+                                ->filter()
+                                ->toArray();
+                        @endphp
+                        <select name="amount" id="amount" class="form-select">
+                            <option value="" selected>Select EMI</option>
+                            @if (isset($invoice->project))
+                                @foreach ($invoice->project->emi as $date => $emi)
+                                    <option value="{{ $emi }}" @if (in_array($date, $paidEmiDates)) disabled @endif>
+                                        {{ $date }} - {{ $emi }}
+                                        @if (in_array($date, $paidEmiDates))
+                                            (Paid)
+                                        @endif
+                                    </option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+                    <div class="col-md-3"><input name="method" class="form-control" placeholder="Method"></div>
+                    <div class="col-md-3"><input name="reference" id="reference" class="form-control"
+                            placeholder="Reference">
+                    </div>
+                    <div class="col-md-2"><input name="paid_at" type="date" class="form-control"
+                            value="{{ date('Y-m-d') }}"></div>
+                    <div class="col-md-1"><button class="btn btn-primary">Add</button></div>
                 </div>
-                <div class="modal-body">
-                    <input type="text" id="projectSearch" class="form-control" placeholder="Search project...">
-                    <ul id="projectResults" class="list-group mt-2"></ul>
-                </div>
-            </div>
+            </form>
+            
+            @if (isset($invoice->payments))
+                <hr>
+                <h5>Payments</h5>
+                <ul id="paymentsList">
+                    @foreach ($invoice->payments as $pay)
+                        <li>{{ $pay->paid_at }} — {{ $pay->amount }} ({{ $pay->method }})
+                            {{ $pay->meta && $pay->meta['emi_date'] ? 'for EMI on ' . $pay->meta['emi_date'] : '' }}</li>
+                    @endforeach
+                </ul>
+            @endif
         </div>
     </div>
+    </div>
 @endsection
-{{-- <select name="items[${counter.length}][quote_master_id]" class="form-select sku-select">
-                        <option value="">Select SKU</option>
-                        @foreach ($quoteMasters as $m)
-                            <option value="{{ $m->id }}">{{ $m->sku }}</option>
-                        @endforeach
-                    </select> --}}
 @section('scripts')
     <script>
         // minimal dynamic items handlers
+
+        const project_id = document.getElementById("project_id").value
+        const invoice_id = document.getElementById("invoice_id").value
+        document.getElementById('paymentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const res = await fetch(`/billing/invoices/${invoice_id}/payments`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: formData
+            });
+            const json = await res.json();
+            if (json.status) {
+                alert('Payment added');
+                location.reload();
+            } else {
+                alert('Failed');
+            }
+        });
         document.addEventListener('click', function(e) {
             if (e.target && e.target.id === 'addItem') {
                 counter = document.querySelectorAll('.invoice-item') || 0
                 const wrapper = document.getElementById('itemsWrapper');
                 const row = document.createElement('div');
-                row.className = 'row gap-1 m-2 invoice-item';
+                row.className = 'row gap-1 my-1 invoice-item';
                 row.innerHTML = `
                     
                         <div class="col-1">
@@ -312,6 +388,16 @@
                 calculateTotals();
             }
         });
+        document.addEventListener("change", async function(e) {
+            if (e.target.id == "amount") {
+                const val = e.target.value;
+                if (!val) return;
+                option = e.target.selectedOptions[0]?.innerText;
+                const [date, amount] = option.split(' - ')
+                document.getElementById("emi_date").value = date.trim()
+                document.getElementById("reference").value = "EMI on " + date.trim()
+            }
+        });
 
         function calculateRow(row) {
             const qty = parseFloat(row.querySelector('.qty-input').value || 0);
@@ -353,36 +439,79 @@
                 calculateTotals();
             }
         });
-        document.getElementById("attachProjectBtn").onclick = () => {
-            new bootstrap.Modal(document.getElementById("projectAttachModal")).show();
-        };
+
+        let projectSearchController = null;
 
         document.getElementById("projectSearch").addEventListener("input", async function() {
-            const q = this.value;
-            if (!q.trim()) return;
+            const q = this.value.trim();
+            const box = document.getElementById("projectResults");
 
-            let res = await fetch(`/ajax/projects/search?q=${encodeURIComponent(q)}`);
-            let data = await res.json();
-            console.log();
+            // Clear results if empty
+            if (!q) {
+                box.innerHTML = "";
+                if (projectSearchController) {
+                    projectSearchController.abort();
+                    projectSearchController = null;
+                }
+                return;
+            }
 
-            let box = document.getElementById("projectResults");
+            // Abort previous request
+            if (projectSearchController) {
+                projectSearchController.abort();
+            }
+
+            projectSearchController = new AbortController();
+            const {
+                signal
+            } = projectSearchController;
+
+            // Show loader
             box.innerHTML = "";
+            const loaderWrapper = document.createElement("li");
+            loaderWrapper.className = "list-group-item text-center";
 
-            data.forEach(p => {
-                let li = document.createElement("li");
-                li.className = "list-group-item list-group-item-action";
-                li.dataset.pro = JSON.stringify(p);
-                li.innerHTML = `
-            <strong>${p.label}</strong><br>
-            <small>${p.sub}</small> — <span>${p.extra}</span>
-        `;
-                li.onclick = () => {
-                    document.getElementById("project_id").value = p.id;
-                    bootstrap.Modal.getInstance(document.getElementById("projectAttachModal"))
-                        .hide();
-                };
-                box.appendChild(li);
-            });
+            const loader = document.createElement("div");
+            loader.className = "spinner-border text-primary";
+            loaderWrapper.appendChild(loader);
+
+            box.appendChild(loaderWrapper);
+
+            try {
+                const res = await fetch(
+                    `/ajax/projects/search?q=${encodeURIComponent(q)}`, {
+                        signal
+                    }
+                );
+
+                const data = await res.json();
+
+                box.innerHTML = "";
+
+                data.forEach(p => {
+                    const li = document.createElement("li");
+                    li.className = "list-group-item list-group-item-action";
+                    li.dataset.pro = JSON.stringify(p);
+
+                    li.innerHTML = `
+                        <strong>${p.label}</strong><br>
+                        <small>${p.sub}</small> — <span>${p.extra}</span>
+                    `;
+
+                    li.addEventListener("click", () => {
+                        document.getElementById("project_id").value = p.id;
+                        document.getElementById("projectSearch").value = p.label;
+                        box.innerHTML = ""; // hide results
+                    });
+
+                    box.appendChild(li);
+                });
+            } catch (err) {
+                if (err.name !== "AbortError") {
+                    console.error("Search error:", err);
+                    box.innerHTML = "";
+                }
+            }
         });
     </script>
 @endsection

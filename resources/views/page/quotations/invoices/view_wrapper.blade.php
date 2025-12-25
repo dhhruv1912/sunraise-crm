@@ -106,7 +106,6 @@
 
         </div>
     </div>
-    </div>
 
     {{-- Modal --}}
     {{-- @include('page.quotations.invoices.modal') --}}
@@ -122,17 +121,17 @@
 
         async function loadInvoice(id) {
             // try {
-                const res = await fetch(`/billing/invoices/${id}/view-json`);
-                const json = await res.json();
+            const res = await fetch(`/billing/invoices/${id}/view-json`);
+            const json = await res.json();
 
-                if (!json.status) {
-                    return alert("Failed to load invoice");
-                }
+            if (!json.status) {
+                return alert("Failed to load invoice");
+            }
 
-                populateInvoiceModal(json.data);
-                document.getElementById("loaderCard").classList.add("d-none")
-                document.getElementById("contentCard").classList.remove("d-none")
-                // new bootstrap.Modal(document.getElementById('invoiceViewModal')).show();
+            populateInvoiceModal(json.data);
+            document.getElementById("loaderCard").classList.add("d-none")
+            document.getElementById("contentCard").classList.remove("d-none")
+            // new bootstrap.Modal(document.getElementById('invoiceViewModal')).show();
 
             // } catch (e) {
             //     console.error(e);

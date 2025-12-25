@@ -7,12 +7,14 @@ use App\Models\Lead;
 use App\Models\LeadHistory;
 use App\Models\Project;
 use App\Models\ProjectHistory;
+use App\Models\Quotation;
 use App\Models\QuoteRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LeadController extends Controller
@@ -54,7 +56,7 @@ class LeadController extends Controller
     public function ajaxList(Request $request)
     {
         $perPage = (int) $request->get('per_page', 20);
-        $query = Lead::query()->with(['quoteRequest','customer']);
+        $query = Lead::query()->with(['quoteRequest', 'customer']);
 
         // Search across lead_code, remarks, quote_request name, mobile etc.
         if ($q = $request->get('search')) {
@@ -145,9 +147,10 @@ class LeadController extends Controller
      */
     public function edit($id)
     {
-        $lead = Lead::with(['quoteRequest','customer'])->findOrFail($id);
+        $lead = Lead::with(['quoteRequest', 'customer'])->findOrFail($id);
         $statuses = $this->getStatusMap();
         $users = User::orderBy('fname')->get(['id', 'fname', 'lname']);
+
         // dd($lead);
         return view('page.marketing.form', compact('lead', 'statuses', 'users'));
     }
@@ -189,13 +192,51 @@ class LeadController extends Controller
      */
     public function view($id)
     {
-        $lead = Lead::with(['quoteRequest', 'history'])->findOrFail($id);
+        $lead = Lead::with([
+            'customer', 
+            // 'history', 
+            'assignedUser', 
+            'quoteMaster'
+        ])->findOrFail($id);
         $statuses = $this->getStatusMap();
 
         // prepare history for blade
-        $history = $lead->history()->orderBy('id', 'desc')->get();
+        // $history = $lead->history()->orderBy('id', 'desc')->get();
 
-        return view('page.marketing.view', compact('lead', 'statuses', 'history'));
+        return view('page.marketing.view', compact('lead', 'statuses'));
+    }
+
+    public function getQuotations($id){
+        try {
+            $quotes = Quotation::with(['sentBy'])->where('lead_id',$id)->get();
+            return response()->json(['status' => true, 'quotations' => $quotes]);
+        } catch (\Throwable $th) {
+            return response()->json(['status' => false, 'message' => $th->getMessage()],500);
+            
+        }
+
+    }
+    public function getHistory($id){
+        try {
+            $history = LeadHistory::with('user')->where('lead_id',$id)->orderBy('id', 'desc')->get();
+            return response()->json(['status' => true, 'history' => $history]);
+        } catch (\Throwable $th) {
+            return response()->json(['status' => false, 'message' => $th->getMessage()],500);
+            
+        }
+
+    }
+
+    public function apiView($id)
+    {
+        $ld = Lead::with([
+            'quoteRequest',
+            'quoteMaster',
+        ])->
+            findOrFail($id);
+
+        return response()->json($ld);
+
     }
 
     /**
@@ -203,7 +244,7 @@ class LeadController extends Controller
      */
     public function viewJson($id)
     {
-        $lead = Lead::with(['quoteRequest', 'history.user', 'creator', 'assignedUser','customer'])->findOrFail($id);
+        $lead = Lead::with(['quoteRequest', 'history.user', 'creator', 'assignedUser', 'customer'])->findOrFail($id);
 
         $assignedUser = $lead->assigned_to ? User::find($lead->assigned_to) : null;
 
@@ -265,24 +306,24 @@ class LeadController extends Controller
         $this->logHistory($lead->id, 'status_change', sprintf('Status changed from %s to %s', $old, $lead->status), Auth::id());
 
         // If converted, create project (idempotent)
-        if ($lead->status === 'converted') {
-            if (! Project::where('lead_id', $lead->id)->exists()) {
-                try {
-                    $proj = Project::create([
-                        'lead_id' => $lead->id,
-                        'project_code' => 'PRJ-'.now()->format('Ymd').'-'.Str::upper(Str::random(4)),
-                        'customer_name' => optional($lead->quoteRequest)->name ?? null,
-                        'mobile' => optional($lead->quoteRequest)->number ?? null,
-                        'status' => 'new',
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                    $this->logHistory($lead->id, 'converted', 'Lead converted to project ID '.$proj->id, Auth::id());
-                } catch (\Throwable $th) {
-                    Log::warning("Project create failed for lead {$lead->id}: ".$th->getMessage());
-                }
-            }
-        }
+        // if ($lead->status === 'converted') {
+        //     if (! Project::where('lead_id', $lead->id)->exists()) {
+        //         try {
+        //             $proj = Project::create([
+        //                 'lead_id' => $lead->id,
+        //                 'project_code' => 'PRJ-'.now()->format('Ymd').'-'.Str::upper(Str::random(4)),
+        //                 'customer_name' => optional($lead->quoteRequest)->name ?? null,
+        //                 'mobile' => optional($lead->quoteRequest)->number ?? null,
+        //                 'status' => 'new',
+        //                 'created_at' => now(),
+        //                 'updated_at' => now(),
+        //             ]);
+        //             $this->logHistory($lead->id, 'converted', 'Lead converted to project ID '.$proj->id, Auth::id());
+        //         } catch (\Throwable $th) {
+        //             Log::warning("Project create failed for lead {$lead->id}: ".$th->getMessage());
+        //         }
+        //     }
+        // }
 
         return response()->json(['status' => true, 'message' => 'Status updated']);
     }
@@ -521,10 +562,101 @@ class LeadController extends Controller
         ]);
     }
 
-    public function createProjectFromLead($leadId)
+    public function getProjectDataFromLead($leadId)
     {
-        $lead = Lead::with(['customer', 'quoteRequest'])->findOrFail($leadId);
-        dd($lead);
+        $lead = Lead::with([
+            'customer',
+            'quoteRequest',
+            'assignedUser',
+            'quoteMaster',
+        ])->findOrFail($leadId);
+        // Prevent duplicate project
+        if (Project::where('lead_id', $lead->id)->exists()) {
+            // return response()->json([
+            //     'status' => false,
+            //     'message' => 'Project already exists for this lead.',
+            // ], 409);
+            return response()->json([
+                'status' => true,
+                'lead' => $lead,
+                'project' => Project::where('lead_id', $lead->id)->first(),
+                'code' => 409,
+            ]);
+        }
+
+        // Auto-generate project code
+        $projectCode = 'PRJ-'.now()->format('Ymd').'-'.strtoupper(Str::random(4)).'-'.$lead->id;
+
+        // Build payload using lead + customer + quote request
+        $payload = [
+            'lead_id' => $lead->id,
+            'quote_request_id' => $lead->quoteRequest->id,
+            'quote_master_id' => $lead->quoteMaster->id,
+            'customer_id' => $lead->customer->id,
+            'project_code' => $projectCode,
+            'status' => 'new',
+            'assignee' => $lead->assignedUser->id ?? null,
+            'reporter' => Auth::id(),
+            'is_on_hold' => 0,
+            'hold_reason' => null,
+        ];
+
+        return response()->json([
+            'status' => true,
+            'payload' => $payload,
+            'lead' => $lead,
+        ]);
+    }
+
+    public function createProjectFromLead(Request $request, $leadId)
+    {
+        $lead = Lead::findOrFail($leadId);
+        $data = $request->all();
+
+        // Convert number strings to integers
+        $numericFields = [
+            'finalize_price',
+            'lead_id',
+            'quote_request_id',
+            'quote_master_id',
+            'customer_id',
+            'assignee',
+            'reporter',
+            'is_on_hold',
+        ];
+
+        foreach ($numericFields as $field) {
+            if (isset($data[$field])) {
+                $data[$field] = is_numeric($data[$field])
+                    ? (int) $data[$field]
+                    : null;
+            }
+        }
+
+        // Convert date strings to Carbon dates
+        $dateFields = [
+            'survey_date',
+            'installation_start_date',
+            'inspection_date',
+            'estimated_complete_date',
+        ];
+
+        // foreach ($dateFields as $field) {
+        //     if (! empty($data[$field]) && $data[$field] !== 'null') {
+        //         $data[$field] = Carbon::parse($data[$field]);
+        //     } else {
+        //         $data[$field] = null;
+        //     }
+        // }
+
+        // Convert EMIs from string->number and date->date
+        if (isset($data['emi']) && is_array($data['emi'])) {
+            $emi = [];
+            foreach ($data['emi'] as $date => $amount) {
+                $emi[Carbon::parse($date)->format('Y-m-d')] = str($amount);
+            }
+            $data['emi'] = $emi;
+        }
         // Prevent duplicate project
         if (Project::where('lead_id', $lead->id)->exists()) {
             return response()->json([
@@ -532,28 +664,8 @@ class LeadController extends Controller
                 'message' => 'Project already exists for this lead.',
             ], 409);
         }
-
-        // Auto-generate project code
-        $projectCode = 'PRJ-'.now()->format('Ymd').'-'.strtoupper(Str::random(4));
-
-        // Build payload using lead + customer + quote request
-        $payload = [
-            'lead_id' => $lead->id,
-            'project_code' => $projectCode,
-            'customer_name' => $lead->customer->name ?? ($lead->quoteRequest->name ?? ''),
-            'mobile' => $lead->customer->mobile ?? ($lead->quoteRequest->number ?? ''),
-            'address' => $lead->customer->address ?? ($lead->quoteRequest->address ?? ''),
-            'kw' => $lead->quoteRequest->kw ?? null,
-            'module_count' => $lead->quoteRequest->mc ?? null,
-            'module_brand' => null,
-            'inverter_brand' => null,
-            'status' => 'new',
-            'assignee' => $lead->assigned_to ?? null,
-            'reporter' => Auth::id(),
-        ];
-
         // Create project
-        $project = Project::create($payload);
+        $project = Project::create($data);
 
         // Log project history
         ProjectHistory::create([

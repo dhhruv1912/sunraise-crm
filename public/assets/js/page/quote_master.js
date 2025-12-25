@@ -53,15 +53,14 @@ function renderTable(rows = []) {
 function renderRow(row) {
     return `
         <tr data-id="${row.id}">
-            <td><input class="form-control form-control-sm inline" data-field="sku" value="${escapeHtml(row.sku ?? '')}"></td>
-            <td><input class="form-control form-control-sm inline" data-field="module" value="${escapeHtml(row.module ?? '')}"></td>
-            <td><input class="form-control form-control-sm inline" data-field="kw" value="${row.kw ?? ''}"></td>
-            <td><input class="form-control form-control-sm inline" data-field="module_count" value="${row.module_count ?? ''}"></td>
-            <td><input class="form-control form-control-sm inline" data-field="value" value="${row.value ?? ''}"></td>
-            <td><input class="form-control form-control-sm inline" data-field="payable" value="${row.payable ?? ''}"></td>
-            <td><input class="form-control form-control-sm inline" data-field="projected" value="${row.projected ?? ''}" readonly></td>
+            <td>${escapeHtml(row.sku ?? '')}</td>
+            <td>${escapeHtml(row.module ?? '')}</td>
+            <td>${row.kw ?? ''}</td>
+            <td>${row.module_count ?? ''}</td>
+            <td>${row.value ?? ''}</td>
+            <td>${row.payable ?? ''}</td>
+            <td>${row.projected ?? ''}</td>
             <td>
-                <button class="btn btn-sm btn-success" onclick="saveInline(this)">Save</button>
                 <a href="/quote/master/edit/${row.id}" class="btn btn-sm btn-primary">Edit</a>
                 <button class="btn btn-sm btn-danger" onclick="deleteItem(${row.id})">Delete</button>
             </td>

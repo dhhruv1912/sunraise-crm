@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class Lead extends Model
 {
@@ -41,11 +42,29 @@ class Lead extends Model
      | Relationships
      ----------------------------------------*/
 
+    protected $with = ['quoteRequest','quoteMaster','creator','quotation'];
+
     public function quoteRequest()
     {
         return $this->belongsTo(QuoteRequest::class, 'quote_request_id');
     }
 
+    // public function quoteMaster()
+    // {
+    //     dd($this->belongsTo(QuoteMaster::class, 'quote_master_id')->where($this->quoteRequest()->quote_master_id,'quote_master_id'));
+    //     return $this->belongsTo(QuoteMaster::class, 'quote_master_id');
+    // }
+    public function quoteMaster()
+    {
+        return $this->hasOneThrough(
+            QuoteMaster::class,     // final model
+            QuoteRequest::class,    // intermediate model
+            'id',                   // FK on quote_requests pointing to quote_masters? NO
+            'id',                   // local key on quote_masters
+            'quote_request_id',     // FK on leads table
+            'quote_master_id'       // FK on quote_requests table
+        );
+    }
     public function customer()
     {
         return $this->belongsTo(Customer::class, 'customer_id');
@@ -73,7 +92,7 @@ class Lead extends Model
 
     public function quotation()
     {
-        return $this->belongsTo(Quotation::class, 'quotation_id');
+        return $this->hasMany(Quotation::class, 'lead_id');
     }
 
     // helper
@@ -83,7 +102,7 @@ class Lead extends Model
             'lead_id' => $this->id,
             'action' => $event,
             'message' => $message,
-            'changed_by' => $performedBy ?? auth()->id(),
+            'changed_by' => $performedBy ?? Auth::id(),
             'meta' => $meta ? json_encode($meta) : null,
         ]);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Customer;
 use App\Models\Lead;
 use App\Models\Project;
 use App\Models\QuoteMaster;
@@ -9,13 +10,12 @@ use App\Models\QuoteRequest;
 use App\Models\QuoteRequestHistory;
 use App\Models\Settings;
 use App\Models\User;
-use App\Models\Customer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -105,7 +105,50 @@ class QuoteRequestController extends Controller
      --------------------------------------------------------- */
     public function view($id)
     {
-        return view('page.quote_requests.view_wrapper', ['id' => $id]);
+        $qr = QuoteRequest::with([
+            'customer',
+            'assignedUser',
+            'creator',
+            // 'quotations',
+            'quoteMaster',
+            'history.user',
+        ])->findOrFail($id);
+        $projects = null;
+        if ($qr->quoteMaster) {
+            $projects = Project::where('quote_master_id', $qr->quoteMaster->id)->limit(5)->get();
+        }
+        if ($qr->status === 'new_request') {
+            QuoteRequestHistory::create([
+                'quote_request_id' => $qr->id,
+                'action' => 'view ',
+                'message' => 'Viewed Quote Request',
+                'user_id' => Auth::id(),
+            ]);
+            $qr->status = 'viewed';
+            $qr->save();
+        } elseif ($qr->status === 'viewed') {
+            $qr->status = 'pending';
+            $qr->save();
+
+        }
+
+        // map history from eager-loaded relation (no duplicate query)
+        $history = $qr->history->sortByDesc('created_at')->map(function ($h) {
+            return [
+                'action' => $h->action,
+                'message' => $h->message,
+                'user' => optional($h->user)->fname.' '.optional($h->user)->lname,
+                'datetime' => optional($h->created_at)->format('d M Y h:i A'),
+            ];
+        })->values();
+
+        return view('page.quote_requests.view_wrapper', [
+            'data' => $qr,
+            'history' => $history,
+            'master' => QuoteMaster::get(),
+            'users' => User::select('id', 'fname', 'lname')->get(),
+            'projects' => $projects,
+        ]);
     }
 
     /* ---------------------------------------------------------
@@ -134,20 +177,9 @@ class QuoteRequestController extends Controller
         return response()->json([
             'data' => $qr,
             'history' => $history,
-            'master' => QuoteMaster::pluck('sku','id'),
+            'master' => QuoteMaster::pluck('sku', 'id'),
             'users' => User::select('id', 'fname', 'lname')->get(),
         ]);
-
-    }
-    public function apiView($id)
-    {
-        $qr = QuoteRequest::
-            with([
-                'quote',
-            ])->
-            findOrFail($id);
-
-        return response()->json($qr);
 
     }
 
@@ -157,8 +189,9 @@ class QuoteRequestController extends Controller
     public function create()
     {
         return view('page.quote_requests.form', [
+            'modules' => json_decode(Settings::getValue('quote_module_list_fe'), true),
             'statuses' => self::$STATUS,
-            'users' => User::select('id','fname','lname')->get()
+            'users' => User::select('id', 'fname', 'lname')->get(),
         ]);
     }
 
@@ -167,7 +200,6 @@ class QuoteRequestController extends Controller
      --------------------------------------------------------- */
     public function store(Request $request)
     {
-        $payload = $this->validatePayload($request);
         $customerId = null;
         if ($request->filled('mobile') || $request->filled('email')) {
             $customer = Customer::firstOrCreate(
@@ -176,6 +208,7 @@ class QuoteRequestController extends Controller
             );
             $customerId = $customer->id;
         }
+        $QM = QuoteMaster::where('kw', $request->kw)->where('module', $request->module)->first('id');
         $qr = QuoteRequest::create([
             'type' => $request->type,
             'customer_id' => $customerId,
@@ -185,17 +218,34 @@ class QuoteRequestController extends Controller
             'budget' => $request->budget,
             'status' => $request->status,
             'assigned_to' => Auth::id(),
-            'quote_master_id' => null,
+            'quote_master_id' => $QM->id ?? null,
             'created_by' => Auth::id(),
             'notes' => $request->notes,
             'source' => $request->source,
             'ip' => $request->ip,
             'location' => $request->location,
         ]);
-
+        QuoteRequestHistory::create([
+            'quote_request_id' => $qr->id,
+            'action' => 'create',
+            'message' => 'Created new Request (Internal)',
+            'user_id' => Auth::id(),
+        ]);
         // Auto actions
         if ($this->autoMailEnabled()) {
+            QuoteRequestHistory::create([
+                'quote_request_id' => $qr->id,
+                'action' => 'create lead',
+                'message' => 'Created Lead from Request (Auto)',
+                'user_id' => null,
+            ]);
             $this->createLeadIfMissing($qr);
+            QuoteRequestHistory::create([
+                'quote_request_id' => $qr->id,
+                'action' => 'send mail',
+                'message' => 'Sent Mail to Customer (Auto)',
+                'user_id' => null,
+            ]);
             $this->safeSendMail($qr);
         }
 
@@ -221,7 +271,31 @@ class QuoteRequestController extends Controller
     {
         $payload = $this->validatePayload($request);
 
-        QuoteRequest::findOrFail($id)->update($payload);
+        $quote = QuoteRequest::findOrFail($id);
+
+        // find changed fields only
+        $changes = [];
+        foreach ($payload as $key => $value) {
+            if ($value != $quote->$key) {
+                $changes[$key] = [
+                    'old' => $quote->$key,
+                    'new' => $value,
+                ];
+            }
+        }
+
+        // update main record
+        $quote->update($payload);
+
+        // create history for each changed field
+        foreach ($changes as $field => $change) {
+            QuoteRequestHistory::create([
+                'quote_request_id' => $id,
+                'action' => 'update',
+                'message' => "Field '{$field}' changed from '{$change['old']}' to '{$change['new']}'",
+                'user_id' => Auth::id(),
+            ]);
+        }
 
         return redirect()->route('quote_requests.index')
             ->with('success', 'Quote request updated.');
@@ -233,7 +307,12 @@ class QuoteRequestController extends Controller
     public function delete(Request $request)
     {
         QuoteRequest::where('id', $request->id)->delete();
-
+        QuoteRequestHistory::create([
+            'quote_request_id' => $request->id,
+            'action' => 'delete',
+            'message' => 'Delete Quote Request ',
+            'user_id' => Auth::id(),
+        ]);
         return response()->json(['status' => true, 'message' => 'Deleted']);
     }
 
@@ -315,18 +394,24 @@ class QuoteRequestController extends Controller
         }
 
         $qr->update(['status' => $new]);
-
+        QuoteRequestHistory::create([
+            'quote_request_id' => $qr->id,
+            'action' => 'update_status',
+            'message' => 'Change Quote status from '.$old.' to '.$new,
+            'user_id' => Auth::id(),
+        ]);
         // auto create lead & send mail
-        if (in_array($new, ['responded', 'called_converted_to_lead'])) {
-            $this->createLeadIfMissing($qr);
+        // if (in_array($new, ['responded', 'called_converted_to_lead'])) {
+        //     $this->createLeadIfMissing($qr);
 
-            if ($this->autoMailEnabled()) {
-                $this->safeSendMail($qr);
-            }
-        }
+        //     if ($this->autoMailEnabled()) {
+        //         $this->safeSendMail($qr);
+        //     }
+        // }
 
         return response()->json(['status' => true, 'message' => 'Status updated']);
     }
+
     public function updateQuoteMaster(Request $request, $id)
     {
         $request->validate([
@@ -345,7 +430,7 @@ class QuoteRequestController extends Controller
         QuoteRequestHistory::create([
             'quote_request_id' => $qr->id,
             'action' => 'quote_master',
-            'message' => 'Change Quote Master ID from ' . $old . ' to ' . $new,
+            'message' => 'Change Quote Master ID from '.$old.' to '.$new,
             'user_id' => Auth::id(),
         ]);
 
@@ -380,9 +465,14 @@ class QuoteRequestController extends Controller
     {
         $qr = QuoteRequest::with('customer')->findOrFail($id);
         // try {
-            $this->sendMailNow($qr);
-
-            return response()->json(['status' => true, 'message' => 'Mail sent']);
+        $this->sendMailNow($qr);
+        QuoteRequestHistory::create([
+            'quote_request_id' => $qr->id,
+            'action' => 'send mail',
+            'message' => "Mail Sent to Customer",
+            'user_id' => Auth::id(),
+        ]);
+        return response()->json(['status' => true, 'message' => 'Mail sent']);
         // } catch (\Throwable $e) {
         //     Log::error($e);
 
@@ -413,7 +503,7 @@ class QuoteRequestController extends Controller
         if ($v->fails()) {
             return response()->json([
                 'status' => false,
-                'errors' => $v->errors()
+                'errors' => $v->errors(),
             ], 422);
         }
     }
@@ -423,20 +513,34 @@ class QuoteRequestController extends Controller
      --------------------------------------------------------- */
     public function createLeadIfMissing($id)
     {
-        $qr = QuoteRequest::findOrFail($id);
-        if ($lead = Lead::where('quote_request_id', $qr->id)->first()) {
-            return $lead;
+        try {
+            $qr = QuoteRequest::findOrFail($id);
+            if ($lead = Lead::where('quote_request_id', $qr->id)->first()) {
+                return $lead;
+            }
+            if (in_array($qr->status, ['new_request', 'viewed', 'pending', 'responded','called'])) {
+                $qr->status = 'called_converted_to_lead';
+                $qr->save();
+            }
+            QuoteRequestHistory::create([
+                'quote_request_id' => $qr->id,
+                'action' => 'create lead',
+                'message' => "Created New Lead from Quote Request (Manual)",
+                'user_id' => Auth::id(),
+            ]);
+            return Lead::create([
+                'quote_request_id' => $qr->id,
+                'customer_id' => $qr->customer_id,
+                'lead_code' => 'LD-'.now()->format('Ymd').'-'.Str::upper(Str::random(4)),
+                'assigned_to' => $qr->assigned_to,
+                'status' => 'new',
+                'remarks' => 'Auto-created from Quote Request #'.$qr->id,
+                'created_by' => Auth::id(),
+            ]);
+        } catch (\Throwable $th) {
+            $qr->status = 'pending';
+            $qr->save();
         }
-
-        return Lead::create([
-            'quote_request_id' => $qr->id,
-            'customer_id' => $qr->customer_id,
-            'lead_code' => 'LD-'.now()->format('Ymd').'-'.Str::upper(Str::random(4)),
-            'assigned_to' => $qr->assigned_to,
-            'status' => 'new',
-            'remarks' => 'Auto-created from Quote Request #'.$qr->id,
-            'created_by' => Auth::id(),
-        ]);
     }
 
     /* ---------------------------------------------------------
@@ -457,13 +561,13 @@ class QuoteRequestController extends Controller
      --------------------------------------------------------- */
     protected function safeSendMail(QuoteRequest $qr)
     {
-        // try {
+        try {
             return $this->sendMailNow($qr);
-        // } catch (\Throwable $e) {
-        //     Log::warning("Mail failed for QR {$qr->id}: ".$e->getMessage());
+        } catch (\Throwable $e) {
+            Log::warning("Mail failed for QR {$qr->id}: ".$e->getMessage());
 
-        //     return false;
-        // }
+            return false;
+        }
     }
 
     /* ---------------------------------------------------------
@@ -471,7 +575,7 @@ class QuoteRequestController extends Controller
      --------------------------------------------------------- */
     protected function sendMailNow(QuoteRequest $qr)
     {
-        if (!$qr->customer->email) {
+        if (! $qr->customer->email) {
             return false;
         }
 
@@ -509,6 +613,11 @@ class QuoteRequestController extends Controller
                 $m->attach($path);
             }
         });
+
+        if (in_array($qr->status, ['new_request', 'viewed', 'pending'])) {
+            $qr->status = 'responded';
+            $qr->save();
+        }
 
         return true;
     }

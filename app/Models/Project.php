@@ -10,62 +10,43 @@ class Project extends Model
     use HasFactory;
 
     protected $fillable = [
-        'lead_id',
-        'customer_id',
-        'project_code',
-
-        // location
-        'address',
-        'latitude',
-        'longitude',
-
-        // technical
-        'kw',
-        'module_brand',
-        'inverter_brand',
-        'module_count',
-
-        // workflow
-        'status',
-        'survey_date',
-        'installation_start_date',
-        'installation_end_date',
-        'inspection_date',
-        'handover_date',
-        'estimated_complete_date',
-        'actual_complete_date',
-
-        // files
-        'design_file',
-        'boq_file',
-
-        // users
-        'assignee',
-        'reporter',
-
-        // finance
-        'project_value',
-        'finalize_price',
-        'emi',
-
-        // billing
-        'billing_status',
-        'invoice_number',
-        'invoice_date',
-        'payment_received',
-
-        // subsidy
-        'subsidy_status',
-        'subsidy_amount',
-        'subsidy_file',
-
-        'priority',
-        'current_step',
-        'next_step',
-        'is_on_hold',
-        'hold_reason',
-
-        'project_note',
+        "id",
+        "quote_request_id",
+        "quote_master_id",
+        "lead_id",
+        "customer_id",
+        "project_code",
+        "status",
+        "survey_date",
+        "installation_start_date",
+        "installation_end_date",
+        "inspection_date",
+        "handover_date",
+        "estimated_complete_date",
+        "actual_complete_date",
+        "design_file",
+        "boq_file",
+        "assignee",
+        "reporter",
+        "finalize_price",
+        "emi",
+        "billing_status",
+        "invoice_number",
+        "invoice_date",
+        "payment_received",
+        "subsidy_status",
+        "subsidy_amount",
+        "subsidy_file",
+        "site_photos",
+        "documents",
+        "priority",
+        "current_step",
+        "next_step",
+        "is_on_hold",
+        "hold_reason",
+        "project_note",
+        "created_at",
+        "updated_at",
     ];
 
     protected $casts = [
@@ -79,9 +60,11 @@ class Project extends Model
         'estimated_complete_date' => 'date',
         'actual_complete_date' => 'date',
         'invoice_date' => 'date',
+        'emi' => 'array',
+        'next_step' => 'array'
     ];
 
-    protected $with = ['quoteRequest'];
+    protected $with = []; //'quoteRequest','quoteMaster'
 
     public const BADGES = [];
     /**
@@ -117,6 +100,14 @@ class Project extends Model
 
         'handover'                  => 'Handover',
         'complete'                  => 'Complete',
+    ];
+    public const SUBSIDY_STATUS_LABELS = [
+        'not_applied'           => 'Not Applied',
+        'applied'               => 'Applied',
+        'inspection_pending'    => 'Inspection Pending',
+        'approved'              => 'Approved',
+        'rejected'              => 'Rejected',
+        'subsidy_released'      => 'Subsidy Released',
     ];
 
     /**
@@ -158,7 +149,7 @@ class Project extends Model
 
     public function invoices()
     {
-        return $this->hasMany(Invoice::class, 'project_id');
+        return $this->hasOne(Invoice::class, 'project_id');
     }
 
     public function history()
@@ -171,8 +162,25 @@ class Project extends Model
         return $this->belongsTo(\App\Models\QuoteRequest::class);
     }
 
-    public function documents()
+    public function projectDocuments()
     {
-        return $this->morphMany(Document::class, 'entity');
+        return $this->morphMany(Document::class, 'entity',null);
+    }
+
+    public function boqs()
+    {
+        return $this->hasOne(Boq::class);
+    }
+
+    public function quoteMaster()
+    {
+        return $this->hasOneThrough(
+            QuoteMaster::class,     // final model
+            QuoteRequest::class,    // intermediate model
+            'id',                   // FK on quote_requests pointing to quote_masters? NO
+            'id',                   // local key on quote_masters
+            'quote_request_id',     // FK on leads table
+            'quote_master_id'       // FK on quote_requests table
+        );
     }
 }

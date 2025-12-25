@@ -75,10 +75,10 @@ class QuoteRequest extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function quotations()
-    {
-        return $this->hasMany(Quotation::class, 'quote_request_id');
-    }
+    // public function quotations()
+    // {
+    //     return $this->hasMany(Quotation::class, 'quote_request_id');
+    // }
 
     public function quote()
     {
@@ -93,6 +93,11 @@ class QuoteRequest extends Model
     public function projects()
     {
         return $this->hasMany(\App\Models\Project::class);
+    }
+
+    public function quoteMaster()
+    {
+        return $this->belongsTo(QuoteMaster::class, 'quote_master_id');
     }
 
     public function history()

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\Project;
+use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
@@ -33,7 +34,10 @@ class DocumentController extends Controller
         $perPage = (int)($request->per_page ?? 20);
 
         $query = Document::query()
-            ->with(['uploader', 'project']);
+            ->with([
+                'uploader', 
+                // 'entity'
+            ]);
 
         /* SEARCH */
         if ($search = $request->search) {
@@ -106,8 +110,17 @@ class DocumentController extends Controller
         $uploaded = [];
 
         /* Determine Entity Type (default: project) */
-        $entityType = $request->entity_type ?? ($request->project_id ? 'project' : null);
-        $entityId   = $request->entity_id ?? $request->project_id;
+        if ($request->customer_id) {
+            $entityType = Customer::class;
+            $entityId   = $request->customer_id;
+            $project_id   = $request->project_id;
+        }else if ($request->project_id) {
+            $entityType = Project::class;
+            $entityId   = $request->project_id;
+            $project_id   = $request->project_id;
+        }else{
+            $project_id = $request->project_id ?? null;
+        }
 
         foreach ($request->file('files') as $file) {
             $path = $file->store('documents', 'public');
@@ -116,8 +129,7 @@ class DocumentController extends Controller
                 'entity_type' => $entityType,
                 'entity_id'   => $entityId,
 
-                // Legacy field kept so project->documents still works
-                'project_id'  => ($entityType == 'project') ? $entityId : null,
+                'project_id'  => $project_id,
 
                 'file_name'   => $file->getClientOriginalName(),
                 'file_path'   => $path,
@@ -128,7 +140,7 @@ class DocumentController extends Controller
                 'tags'        => $request->tags ? explode(',', $request->tags) : null,
                 'uploaded_by' => Auth::id(),
             ]);
-
+            $doc['file_path'] = asset('storage/'.$doc->file_path);
             $uploaded[] = $doc;
         }
 
@@ -136,7 +148,7 @@ class DocumentController extends Controller
             'status'  => true,
             'message' => 'Uploaded successfully',
             'data'    => $uploaded
-        ], 201);
+        ], 200);
     }
 
     /* ============================================================
@@ -289,20 +301,21 @@ class DocumentController extends Controller
         $q = trim($request->q);
 
         if (!$q) return response()->json([]);
-
-        $projects = Project::where('project_code', 'like', "%$q%")
-            ->orWhere('customer_name', 'like', "%$q%")
-            ->orWhere('mobile', 'like', "%$q%")
-            ->with('lead')
+        $projects = Project::with(['customer'])
+            ->where('project_code', 'like', "%{$q}%")
+            ->orWhereHas('customer', function ($query) use ($q) {
+                $query->where('name', 'like', "%{$q}%")
+                    ->orWhere('mobile', 'like', "%{$q}%");
+            })
             ->limit(15)
             ->get()
             ->map(function ($p) {
                 return [
                     'id'    => $p->id,
                     'label' => $p->project_code,
-                    'sub'   => $p->customer_name,
-                    'extra' => $p->mobile,
-                    'lead'  => $p->lead,
+                    'sub'   => $p->customer?->name,
+                    'extra' => $p->customer?->mobile,
+                    // 'lead'  => $p->lead,
                 ];
             });
 

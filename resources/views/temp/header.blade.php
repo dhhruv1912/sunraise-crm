@@ -12,9 +12,9 @@
         </div>
 
         <!-- Mobile toggle -->
-        <button id="mobile-menu-toggle" class="btn btn-sm btn-primary d-lg-none navbar-toggler" type="button" data-bs-toggle="collapse"
-                data-bs-target="#navbarCollapse" aria-controls="navbarCollapse"
-                aria-expanded="false" aria-label="Toggle navigation">
+        <button id="mobile-menu-toggle" class="btn btn-sm btn-primary d-lg-none navbar-toggler" type="button"
+            data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false"
+            aria-label="Toggle navigation">
             <span class="navbar-toggler-icon" style="color: var(--bs-primary)"></span>
         </button>
 
@@ -28,7 +28,9 @@
                     <div id="globalSearchResults" class="search-results"></div> --}}
                     <div class="global-search-box">
                         <i class="icon-base ri ri-search-line icon-lg lh-0"></i>
-                        <input id="globalSearchInput" type="text" class="form-control border-0 shadow-none bg-transparent" placeholder="Search..." aria-label="Search...">
+                        <input id="globalSearchInput" type="text"
+                            class="form-control border-0 shadow-none bg-transparent" placeholder="Search..."
+                            aria-label="Search...">
                         {{-- <input class="form-control" placeholder="Search customer, lead, project..."> --}}
                         <div id="globalSearchResults" class="search-dropdown"></div>
                     </div>
@@ -37,12 +39,13 @@
             <div class="d-flex gap-2 mx-2 col justify-content-end">
                 @yield('headbar')
                 <li class="nav-item navbar-dropdown dropdown-user dropdown ms-3 justify-content-end d-flex">
-                    <a class="nav-link dropdown-toggle hide-arrow p-0"
-                       href="#" data-bs-toggle="dropdown">
+                    <a class="nav-link dropdown-toggle hide-arrow p-0" href="#" data-bs-toggle="dropdown">
                         <div class="avatar avatar-online">
-                            <img src="{{ asset('assets/img/avatars/1.png') }}"
+                            <img src="https://api.dicebear.com/7.x/adventurer-neutral/svg?seed={{ auth()->user()->fname }}+{{ auth()->user()->lname }}"
                                  alt="Avatar"
                                  class="w-px-40 h-auto rounded-circle">
+                            {{-- <img src="{{ asset('assets/img/avatars/1.png') }}" alt="Avatar"
+                                class="w-px-40 h-auto rounded-circle"> --}}
                         </div>
                     </a>
 
@@ -53,7 +56,7 @@
                                 <div class="d-flex align-items-center">
                                     <div class="avatar avatar-online me-2">
                                         <img src="{{ asset('assets/img/avatars/1.png') }}"
-                                             class="w-px-40 h-auto rounded-circle">
+                                            class="w-px-40 h-auto rounded-circle">
                                     </div>
                                     <div class="flex-grow-1">
                                         <h6 class="mb-0">
@@ -65,7 +68,9 @@
                             </a>
                         </li>
 
-                        <li><div class="dropdown-divider my-1"></div></li>
+                        <li>
+                            <div class="dropdown-divider my-1"></div>
+                        </li>
 
                         <li>
                             <a class="dropdown-item" href="">{{-- {{ route('Profile') }} --}}
@@ -75,7 +80,7 @@
                         </li>
 
                         <li>
-                            <a class="dropdown-item" href="#">
+                            <a class="dropdown-item" href="{{ route('Setting', ['user', auth()->user()->id]) }}">
                                 <i class="mdi mdi-cog-outline me-1 mdi-20px"></i>
                                 <span>Settings</span>
                             </a>
@@ -91,7 +96,9 @@
                             </a>
                         </li>
 
-                        <li><div class="dropdown-divider my-1"></div></li>
+                        <li>
+                            <div class="dropdown-divider my-1"></div>
+                        </li>
 
                         <li>
                             <a class="dropdown-item" href="{{ route('logout') }}">

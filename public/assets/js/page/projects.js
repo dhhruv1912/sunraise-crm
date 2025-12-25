@@ -47,9 +47,25 @@ function renderList(payload) {
 
         tr.innerHTML = `
             <td>${escapeHtml(p.project_code || '')}</td>
-            <td>${escapeHtml(p.customer_name || '')}</td>
-            <td>${escapeHtml(p.mobile || '')}</td>
-            <td>${escapeHtml(p.kw ?? '—')}</td>
+            <td>${escapeHtml(p?.customer?.name || '—')}</td>
+            <td>${escapeHtml(p?.customer?.mobile || '')}</td>
+            <td>${escapeHtml(p?.quote_master?.sku ?? '—')}</td>
+            <td>
+                ${!p.is_on_hold
+                    ? `
+                        <span
+                            class="badge rounded-pill bg-label-warning"
+                            data-bs-toggle="popover"
+                            data-bs-placement="bottom"
+                            data-bs-content="${p?.hold_reason}"
+                            title="Reason"
+                        >Yes</span>
+                    `
+                    : `
+                        <span class="badge rounded-pill bg-label-info">No</span>
+                    `
+                }
+            </td>
             <td>
                 <select class="form-select assignee-select" data-id="${p.id}">
                     <option value="">—</option>
@@ -67,7 +83,9 @@ function renderList(payload) {
             </td>
         `;
         body.appendChild(tr);
-
+        document.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
+            new bootstrap.Popover(el);
+        });
         // populate assignee select (fetch from global window.__PROJECT_USERS if available)
         const assigneeSelect = tr.querySelector('.assignee-select');
         const users = window.__PROJECT_USERS || [];

@@ -16,7 +16,7 @@
             <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>Name</th>
+                        <th width="150">Name</th>
                         <th>Permissions</th>
                         <th width="120">Actions</th>
                     </tr>
@@ -26,13 +26,15 @@
                         <tr>
                             <td>{{ $role->name }}</td>
 
-                            <td>
-                                @foreach ($role->permissions as $perm)
-                                    <span class="badge bg-info me-1">{{ $perm->name }}</span>
-                                @endforeach
+                            <td class="p-1">
+                                <div class="row gap-1">
+                                    @foreach ($role->permissions as $perm)
+                                        <span class="badge rounded-pill bg-label-primary py-2 col-2">{{ $perm->name }}</span>
+                                    @endforeach
+                                </div>
                             </td>
 
-                            <td class="d-flex gap-2">
+                            <td class="d-flex gap-2 py-5">
                                 <a href="{{ route('roles.edit', $role->id) }}"
                                    class="btn btn-sm btn-primary">Edit</a>
 

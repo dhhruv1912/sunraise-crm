@@ -1,4 +1,4 @@
-// public/assets/js/page/user.js
+// public/assets/js/page/user.js Not Used
 document.addEventListener("DOMContentLoaded", () => {
     // Elements
     const roleColors = {
@@ -90,179 +90,6 @@ document.addEventListener("DOMContentLoaded", () => {
         modal?.show();
     });
 
-    // --- Open Edit modal (populate) ---
-    document.querySelector(tbodySel)?.addEventListener("click", async (e) => {
-        const btn = e.target.closest(".edit-employee");
-        if (!btn) return;
-
-        const id = btn.dataset.id;
-        if (!id) return;
-
-        resetForm();
-        showLoader();
-
-        document.getElementById("addEmployeeModalLabel").innerText = "Edit Employee";
-
-        // hide save, show update
-        saveBtn.classList.add("d-none");
-        updateBtn.classList.remove("d-none");
-        updateBtn.dataset.id = id;
-
-        // Hide salary/password on edit
-        toggleNewOnly(false);
-
-        modal?.show();
-
-        try {
-            const res = await fetch(`/users/${id}`);
-            if (!res.ok) throw new Error("Fetch failed");
-            const data = await res.json();
-            hideLoader();
-
-            setVal("empID", data.id ?? "");
-            setVal("firstname", data.fname ?? "");
-            setVal("lastname", data.lname ?? "");
-            setVal("mobile", data.mobile ?? "");
-            setVal("email", data.email ?? "");
-            setVal("role", data.role ?? "");
-            setChecked("status", data.status == 1);
-        } catch (err) {
-            hideLoader();
-            showAlert("Unable to load employee data");
-        }
-    });
-
-    // --- Save (Create) ---
-    // saveBtn?.addEventListener("click", async () => {
-    //     showLoader();
-    //     const payload = {
-    //         firstname: getVal("firstname"),
-    //         lastname: getVal("lastname"),
-    //         mobile: getVal("mobile"),
-    //         email: getVal("email"),
-    //         password: getVal("password"),
-    //         salary: getVal("salary"),
-    //         role: getVal("role"),
-    //         status: document.getElementById("status")?.checked ? 1 : 0
-    //     };
-
-    //     try {
-    //         const res = await fetch("/users", {
-    //             method: "POST",
-    //             headers: {
-    //                 "Content-Type": "application/json",
-    //                 "X-CSRF-TOKEN": TOKEN
-    //             },
-    //             body: JSON.stringify(payload)
-    //         });
-
-    //         const json = await res.json();
-    //         hideLoader();
-
-    //         if (res.status === 201) {
-    //             showDismissible("Employee added", "alert-success");
-    //             modal?.hide();
-    //             loadStaff();
-    //         } else if (res.status === 422) {
-    //             validateErrors(json);
-    //         } else {
-    //             showAlert(json.message || "Save failed");
-    //         }
-    //     } catch (err) {
-    //         hideLoader();
-    //         showAlert("Something went wrong");
-    //     }
-    // });
-    saveBtn?.addEventListener("click", async () => {
-        showLoader();
-
-        const payload = {
-            firstname: getVal("firstname").trim(),
-            lastname: getVal("lastname").trim(),
-            mobile: getVal("mobile").trim(),
-            email: getVal("email").trim(),
-            password: getVal("password"),
-            salary: Number(getVal("salary")) || null,
-            role: Number(getVal("role")) || null,
-            status: document.getElementById("status")?.checked ? 1 : 0
-        };
-
-        try {
-            const res = await fetch("/users", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-TOKEN": TOKEN,
-                    "X-Requested-With": "XMLHttpRequest"
-                },
-                body: JSON.stringify(payload)
-            });
-
-            const json = await res.json();
-            hideLoader();
-
-            if (res.status === 201) {
-                showDismissible("Employee added successfully!", "alert-success");
-                modal?.hide();
-                loadStaff();
-            }
-            else if (res.status === 422) {
-                validateErrors(json.errors);
-            }
-            else {
-                showAlert(json.message || "Save failed", "alert-danger");
-            }
-
-        } catch (err) {
-            hideLoader();
-            showAlert("Something went wrong", "alert-danger");
-        }
-    });
-
-
-    // --- Update ---
-    updateBtn?.addEventListener("click", async () => {
-        const id = updateBtn.dataset.id;
-        if (!id) return;
-        showLoader();
-
-        const payload = {
-            firstname: getVal("firstname"),
-            lastname: getVal("lastname"),
-            mobile: getVal("mobile"),
-            email: getVal("email"),
-            role: getVal("role"),
-            status: document.getElementById("status")?.checked ? 1 : 0
-        };
-
-        try {
-            const res = await fetch(`/users/${id}`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-TOKEN": TOKEN
-                },
-                body: JSON.stringify(payload)
-            });
-
-            const json = await res.json();
-            hideLoader();
-
-            if (res.status === 200) {
-                showDismissible("Employee updated", "alert-success");
-                modal?.hide();
-                loadStaff();
-            } else if (res.status === 422) {
-                validateErrors(json);
-            } else {
-                showAlert(json.message || "Update failed");
-            }
-        } catch (err) {
-            hideLoader();
-            showAlert("Unable to update");
-        }
-    });
-
     // --- Close button (modal) ---
     closeBtn?.addEventListener("click", () => {
         modal?.hide();
@@ -277,7 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!confirm("Are you sure?")) return;
 
         try {
-            const res = await fetch(`/users/${id}`, {
+            const res = await fetch(`/user/${id}`, {
                 method: "DELETE",
                 headers: { "X-CSRF-TOKEN": TOKEN }
             });
@@ -293,53 +120,44 @@ document.addEventListener("DOMContentLoaded", () => {
             showAlert("Delete failed");
         }
     });
-    // const roleNames = {
-    //     1: "Admin",
-    //     2: "Devloper",
-    //     3: "CMO",
-    //     4: "Marketing Head",
-    //     5: "Marketing Exicutive",
-    //     6: "Project Head",
-    //     7: "Project Superviser",
-    //     8: "Lisoner",
-    //     9: "Site Engineer",
-    // };
     function getRoleName(id) {
-        return roleNames[parseInt(id) - 1] ?? "Unknown";
+        return window.roleNames[parseInt(id)] ?? "Unknown";
     }
 
     function getRoleBadge(id) {
-        return roleColors[parseInt(id) - 1] ?? "badge bg-secondary";
+        return roleColors[parseInt(id)] ?? "badge bg-secondary";
     }
 
     // --- Render table ---
     function renderStaffTable(list = []) {
+        console.log(list);
+        
         const tbody = document.querySelector(tbodySel);
         if (!tbody) return;
 
-        if (!Array.isArray(list) || list.length === 0) {
+        if (!Array.isArray(list.data) || list.data.length === 0) {
             tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4">No data found</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = list.map(u => `
-      <tr>
-        <td>${u.fname} ${u.lname}</td>
-        <td>
-            <span class="${getRoleBadge(u.role)}">
-                ${getRoleName(u.role)}
-            </span>
-        </td>
-        <td><span class="badge ${u.status ? 'bg-success' : 'bg-danger'}">${u.status ? 'Active' : 'Inactive'}</span></td>
-        <td>${u.mobile ?? '-'}</td>
-        <td>${u.email ?? '-'}</td>
-        <td>
-          <button class="btn btn-sm btn-primary edit-employee" data-id="${u.id}">Edit</button>
-          <button class="btn btn-sm btn-danger delete-employee" data-id="${u.id}">Delete</button>
-        </td>
-      </tr>
-    `).join('');
-    }
+        tbody.innerHTML = list.data.map(u => `
+            <tr>
+                <td>${u.fname} ${u.lname}</td>
+                <td>
+                    <span class="${getRoleBadge(u.role)}">
+                        ${getRoleName(u.role)}
+                    </span>
+                </td>
+                <td><span class="badge ${u.status ? 'bg-success' : 'bg-danger'}">${u.status ? 'Active' : 'Inactive'}</span></td>
+                <td>${u.mobile ?? '-'}</td>
+                <td>${u.email ?? '-'}</td>
+                <td>
+                    <a class="btn btn-sm btn-primary edit-employee" href="/user/${u.id}/edit">Edit</a>
+                    <button class="btn btn-sm btn-danger delete-employee" data-id="${u.id}">Delete</button>
+                </td>
+            </tr>
+            `).join('');
+        }
 
     // --- Pagination renderer & click handler ---
     function renderStaffPagination(p = {}) {
@@ -382,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4">Loading...</td></tr>`;
 
         try {
-            const res = await fetch(`/users?page=${page}`);
+            const res = await fetch(`/user/list?page=${page}`);
             const data = await res.json();
 
             renderStaffTable(data.data || []);

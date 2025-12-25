@@ -37,7 +37,14 @@
 
                 <div class="col-md-3">
                     <label>Module</label>
-                    <input name="module" class="form-control" value="{{ old('module', $data->module ?? '') }}">
+                    {{-- @dump($modules) --}}
+                    <select name="module" class="form-select">
+                        <option value="" selected>-- Select Module --</option>
+                        @foreach ($modules as $md)
+                            <option value="{{ $md }}" {{ (old('module', $data->module ?? '') ==  $md ) ? 'selected' : ''}}>{{ $md }}</option>
+                        @endforeach
+                    </select>
+                    {{-- <input name="module" class="form-control" value="{{ old('module', $data->module ?? '') }}"> --}}
                 </div>
 
                 <div class="col-md-2">

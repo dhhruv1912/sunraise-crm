@@ -23,16 +23,18 @@
         <hr />
         <h5>Documents</h5>
         <div class="row">
-            @foreach($project->documents as $doc)
-                <div class="col-md-3 mb-2">
-                    <div class="card">
-                        <div class="card-body p-2">
-                            <a href="{{ asset('storage/' . $doc->file_path) }}" target="_blank">{{ $doc->type ?? 'file' }}</a>
-                            <div class="text-muted small">{{ $doc->created_at->diffForHumans() }}</div>
+            @if ($project->documents && count($project->documents) > 0)
+                @foreach($project->documents as $doc)
+                    <div class="col-md-3 mb-2">
+                        <div class="card">
+                            <div class="card-body p-2">
+                                <a href="{{ asset('storage/' . $doc->file_path) }}" target="_blank">{{ $doc->type ?? 'file' }}</a>
+                                <div class="text-muted small">{{ $doc->created_at->diffForHumans() }}</div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            @endforeach
+                @endforeach
+            @endif
         </div>
 
         <hr />

@@ -220,3 +220,38 @@ nav#fixed-navbar{
         display: block;
     }
 }
+
+
+.company-card {
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+}
+
+.company-card-inner {
+    transition: all 0.25s ease;
+    border-radius: 14px;
+}
+
+.company-card:hover .company-card-inner {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    border-color: var(--bs-primary);
+}
+
+.company-logo {
+    /* width: 300px; */
+    height: 100px;
+    border-radius: 12px;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.company-logo img {
+    max-height: 60%;
+    object-fit: contain;
+}
+
+

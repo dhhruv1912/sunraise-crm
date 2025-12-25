@@ -32,8 +32,10 @@
 
                 <form action="{{ route('quote_requests.import') }}" method="POST" enctype="multipart/form-data" class="d-inline-block">
                     @csrf
-                    <input type="file" name="file" required style="display:inline-block">
-                    <button type="submit" class="btn btn-warning">Import</button>
+                    <div class="input-group">
+                        <input type="file" class="form-control"  name="file" required>
+                        <button type="submit" class="btn btn-warning">Import</button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -105,7 +107,7 @@
                             <th>Assigned</th>
                             <th>Status</th>
                             <th>Created</th>
-                            <th>Actions</th>
+                            <th width="200px">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="dataBody">
@@ -118,7 +120,7 @@
         </div>
     </div>
 
-@include('page.quote_requests.view') {{-- modal view --}}
+{{-- @include('page.quote_requests.view') modal view --}}
 @endsection
 
 @section('scripts')

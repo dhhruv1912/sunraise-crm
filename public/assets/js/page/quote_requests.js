@@ -9,10 +9,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const refreshBtn = document.getElementById("refreshBtn");
     const dataBody = document.getElementById("dataBody");
     const paginationContainer = document.getElementById("paginationContainer");
-
-    const modalEl = new bootstrap.Modal(document.getElementById("quoteRequestViewModal"));
-    const modal = document.getElementById("quoteRequestViewModal");
-
     // load initial
     loadData();
 
@@ -108,16 +104,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 </td>
                 <td>${created}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary view-btn" data-id="${r.id}">View</button>
+                    <a href="/quote/requests/${r.id}/view" class="btn btn-sm btn-primary" data-id="${r.id}">View</a>
                     <button class="btn btn-sm btn-danger delete-btn" data-id="${r.id}">Delete</button>
                 </td>
             </tr>`;
         });
+        // <button class="btn btn-sm btn-primary view-btn" data-id="${r.id}">View</button>
 
         dataBody.innerHTML = html;
 
         // attach listeners
-        document.querySelectorAll(".view-btn").forEach(b => b.addEventListener("click", onView));
+        // document.querySelectorAll(".view-btn").forEach(b => b.addEventListener("click", onView));
         document.querySelectorAll(".delete-btn").forEach(b => b.addEventListener("click", onDelete));
         document.querySelectorAll(".status-select").forEach(s => s.addEventListener("change", onStatusChange));
     }
@@ -149,112 +146,6 @@ document.addEventListener("DOMContentLoaded", () => {
         paginationContainer.innerHTML = html;
     }
 
-    async function onView(e) {
-        const id = e.currentTarget.dataset.id;
-        // const res = await fetch(`/quote/requests/${id}/view`);
-        // server returns HTML partial view - we will fetch JSON endpoint for modal content instead
-        // Better: use ajax endpoint that returns JSON
-        const json = await fetchJson(`/quote/requests/${id}/view-json`);
-        populateModal(json);
-    }
-    function renderHistory(history) {
-        const container = document.getElementById('modal-history');
-        if (!container) return;
-
-        if (history.length === 0) {
-            container.innerHTML = `<div class="text-muted small">No history available.</div>`;
-            return;
-        }
-
-        let html = "";
-
-        history.forEach(h => {
-            html += `
-            <div class="timeline-entry">
-                <strong>${h.action}</strong><br>
-                ${h.message}<br>
-                <small>${h.datetime} — by ${h.user}</small>
-            </div>
-        `;
-        });
-
-        container.innerHTML = html;
-    }
-
-    function populateModal(data) {
-        if (!data) return;
-        
-        const row = data.data;      // main record
-        const history = data.history || [];
-
-        document.getElementById('modal-id').textContent = row.id;
-        document.getElementById('modal-type').textContent = (row.type || '—').toUpperCase();
-        document.getElementById('modal-name').textContent = row.customer.name || '—';
-        document.getElementById('modal-number').textContent = row.customer.mobile || '—';
-        document.getElementById('modal-email').textContent = row.customer.email || '—';
-        document.getElementById('modal-module').textContent = row.module || '—';
-        document.getElementById('modal-kw').textContent = row.kw || '—';
-        document.getElementById('modal-mc').textContent = row.mc || '—';
-        document.getElementById('modal-status').textContent = (window.__QR_STATUS || {})[row.status] ?? row.status;
-        document.getElementById('modal-assigned').textContent = row.assigned_user.fname + " " + row.assigned_user.lname ?? '—';
-        document.getElementById('modal-notes').textContent = row.notes || '—';
-
-        // Quote-only info
-        document.getElementById('quote-fields').style.display = row.type === 'quote' ? '' : 'none';
-        const select = document.getElementById("quote_master_id");
-
-        Object.entries(data.master).forEach(([key, value]) => {
-            const opt = document.createElement("option");
-            opt.value = key;
-            if(row.quote_master_id == opt.value){
-                opt.selected = true;
-            }
-            opt.textContent = value;
-            select.appendChild(opt);
-        });
-        // Buttons
-        document.getElementById('modal-send-mail').onclick = () => sendMail(row.id);
-        document.getElementById('modal-convert-lead').onclick = () => convertToLead(row.id);
-        document.getElementById('quote_master_id').onchange = (e) => changeQuoteMaster(row.id,e.target.value);
-
-        // 🔥 Render History
-        renderHistory(history);
-
-        modalEl.show();
-    }
-
-
-    async function sendMail(id) {
-        if (!confirm('Send quotation email to customer?')) return;
-        try {
-            const res = await fetch(`/quote/requests/${id}/send-mail`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': TOKEN }
-            });
-            const json = await res.json();
-            alert(json.message || 'Sent');
-        } catch (err) {
-            alert('Failed to send');
-        }
-    }
-
-    async function convertToLead(id) {
-        if (!confirm('Convert this request to lead?')) return;
-        try {
-            const res = await fetch(`/quote/requests/${id}/convert-to-lead`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': TOKEN }
-            });
-            const json = await res.json();
-            if (json.status) {
-                alert('Converted to lead');
-                modalEl.hide();
-                loadData();
-            } else alert('Failed');
-        } catch (err) {
-            alert('Error');
-        }
-    }
 
     async function onDelete(e) {
         const id = e.currentTarget.dataset.id;
@@ -287,29 +178,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    async function changeQuoteMaster(id,quote_master_id) {
-        if (!quote_master_id) return;
-        const res = await fetch(`/quote/requests/${id}/quote-master`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': TOKEN },
-            body: JSON.stringify({ quote_master_id })
-        });
-        const json = await res.json();
-        if (json.status) {
-            // optionally notify
-            alert('Updated!');
-            // loadData();
-        } else {
-            alert('Update failed');
-        }
-    }
-
-    // small helper to GET JSON
-    async function fetchJson(url) {
-        const res = await fetch(url, { credentials: 'same-origin' });
-        if (!res.ok) return null;
-        try { return await res.json(); } catch (e) { return null; }
-    }
 
     document.addEventListener("change", function (e) {
         if (!e.target.classList.contains("assign-user-dropdown")) return;

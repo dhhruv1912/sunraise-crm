@@ -67,4 +67,9 @@ class Customer extends Model
     {
         return $this->hasMany(CustomerNote::class, 'customer_id')->latest();
     }
+
+    public function documents()
+    {
+        return $this->morphMany(Document::class, 'entity',null);
+    }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Quotation;
+use App\Models\Lead;
 use App\Models\QuoteRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -18,25 +19,27 @@ class QuotationController extends Controller
     /* ---------------------------------------------------------
      | MAIN LIST PAGE
      --------------------------------------------------------- */
-    public function index()
+    public function index($id="")
     {
-        return view('page.quotations.list');
+        return view('page.quotations.list',compact('id'));
     }
 
     /* ---------------------------------------------------------
      | AJAX LIST (pagination)
      --------------------------------------------------------- */
-    public function ajaxList(Request $request)
+    public function ajaxList(Request $request,$id=null)
     {
         $perPage = (int)($request->per_page ?? 20);
 
-        $query = Quotation::with(['quoteRequest.customer', 'sentBy']);
-
+        $query = Quotation::with(['lead.customer', 'sentBy']);
+        if($id){
+            $query = $query->where('id',$id);
+        }
         if ($search = $request->search) {
             $query->where('quotation_no', 'like', "%$search%")
                   ->orWhere('meta->sku', 'like', "%$search%")
-                  ->orWhereHas('quoteRequest', function ($qr) use ($search) {
-                      $qr->where('name', 'like', "%$search%")
+                  ->orWhereHas('lead', function ($ld) use ($search) {
+                      $ld->where('name', 'like', "%$search%")
                          ->orWhere('email', 'like', "%$search%")
                          ->orWhere('number', 'like', "%$search%");
                   });
@@ -53,7 +56,7 @@ class QuotationController extends Controller
     public function create()
     {
         return view('page.quotations.form', [
-            'quoteRequests' => QuoteRequest::with('customer')->latest()->limit(200)->get()
+            'leads' => Lead::with('customer')->latest()->limit(200)->get()
         ]);
     }
 
@@ -69,7 +72,8 @@ class QuotationController extends Controller
         }
 
         $rules = [
-            'quote_request_id' => 'nullable|exists:quote_requests,id',
+            // 'quote_request_id' => 'nullable|exists:quote_requests,id',
+            'lead_id' => 'nullable|exists:leads,id',
             'base_price'       => 'required|numeric',
             'discount'         => 'nullable|numeric',
             'final_price'      => 'nullable|numeric',
@@ -88,7 +92,7 @@ class QuotationController extends Controller
         $quotation = new Quotation($request->toArray());
 
         $quotation->quotation_no = $this->generateQuotationNo();
-        $quotation->sent_by      = Auth::id();
+        $quotation->sent_by      = null;
         $quotation->final_price  = $request['final_price']
                                    ?? ($request['base_price'] - ($request['discount'] ?? 0));
         $quotation->meta         = $request['meta'] ?? [];
@@ -117,7 +121,8 @@ class QuotationController extends Controller
         $quotation = Quotation::findOrFail($id);
 
         $validated = $request->validate([
-            'quote_request_id' => 'nullable|exists:quote_requests,id',
+            'lead_id' => 'nullable|exists:leads,id',
+            // 'quote_request_id' => 'nullable|exists:quote_requests,id',
             'base_price'       => 'required|numeric',
             'discount'         => 'nullable|numeric',
             'final_price'      => 'nullable|numeric',
@@ -154,12 +159,18 @@ class QuotationController extends Controller
      --------------------------------------------------------- */
     public function generatePdf($id)
     {
-        $q = Quotation::with('quoteRequest')->findOrFail($id);
-
+        $q = Quotation::with('lead.customer','quoteMaster','lead')->findOrFail($id);
         $pdf = Pdf::loadView('emails.quote_sent_pdf', [
             'quotation' => $q,
-            'request'   => $q->quoteRequest,
-            'company'   => config('app.name'),
+            'lead'   => $q->lead,
+            'master'   => $q->quoteMaster,
+            'company'   => [
+                "COMPANY_NAME" => env("COMPANY_NAME"),
+                "COMPANY_NUMBER" => env("COMPANY_NUMBER"),
+                "COMPANY_EMAIL" => env("COMPANY_EMAIL"),
+                "COMPANY_GST" => env("COMPANY_GST"),
+                "COMPANY_ADDRESS" => env("COMPANY_ADDRESS"),
+            ],
         ]);
 
         $file = "quote_" . $q->id . "_" . now()->format('Ymd_His') . ".pdf";
@@ -197,8 +208,8 @@ class QuotationController extends Controller
      --------------------------------------------------------- */
     public function sendEmail(Request $request, $id)
     {
-        $q = Quotation::with('quoteRequest.customer')->findOrFail($id);
-        $qr = $q->quoteRequest;
+        $q = Quotation::with('lead.customer')->findOrFail($id);
+        $qr = $q->lead;
 
         if (!$qr || !$qr->customer->email) {
             return response()->json([
@@ -239,7 +250,7 @@ class QuotationController extends Controller
      --------------------------------------------------------- */
     public function export()
     {
-        $rows = Quotation::with('quoteRequest')
+        $rows = Quotation::with('lead.customer')
             ->latest()
             ->get()
             ->map(function ($q) {
@@ -247,8 +258,8 @@ class QuotationController extends Controller
                     'id'            => $q->id,
                     'quotation_no'  => $q->quotation_no,
                     'request_id'    => $q->quote_request_id,
-                    'customer'      => optional($q->quoteRequest)->name,
-                    'email'         => optional($q->quoteRequest)->email,
+                    'customer'      => optional($q->lead->customer)->name,
+                    'email'         => optional($q->lead->customer)->email,
                     'base_price'    => $q->base_price,
                     'discount'      => $q->discount,
                     'final_price'   => $q->final_price,

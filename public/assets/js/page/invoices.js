@@ -27,7 +27,8 @@ async function loadList(page = 1) {
       <td>${formatAmount(inv.balance)}</td>
       <td>${inv.status}</td>
       <td>
-         <a class="btn btn-sm btn-outline-primary" href="/billing/invoices/${inv.id}/edit">View</a>
+         <a class="btn btn-sm btn-outline-primary" href="/billing/invoices/${inv.id}">Show</a>
+         <a class="btn btn-sm btn-outline-primary" href="/billing/invoices/${inv.id}/edit">Edit</a>
          <button class="btn btn-sm btn-outline-primary" data-id="${inv.id}" onClick=(deleteInvoice(${inv.id}))>Delete</a>
       </td>
     `;

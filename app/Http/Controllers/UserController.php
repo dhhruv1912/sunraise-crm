@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Role;
@@ -13,8 +14,47 @@ class UserController extends Controller
     // List users (blade)
     public function index(Request $request)
     {
-        $users = User::orderBy('id', 'desc')->paginate(20);
-        return view('page.users.index', compact('users'));
+        // $users = User::orderBy('id', 'desc')->paginate(20);
+        // $sessions = DB::table('sessions')->pluck('user_id')->values();
+        // $sessions = array_values(DB::table('sessions')->pluck('user_id')->toArray());
+        $role = Role::pluck('name','id');
+        return view('page.users.index',compact('role'));
+    }
+
+    public function list(Request $request)
+    {
+        $perPage = (int) $request->get('per_page', 20);
+
+        $q = User::query();
+
+        if ($search = trim($request->search)) {
+            $q->where(function ($x) use ($search) {
+                $x->where('fname', 'like', "%$search%")
+                    ->orWhere('lname', 'like', "%$search%")
+                    ->orWhere('mobile', 'like', "%$search%")
+                    ->orWhere('email', 'like', "%$search%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $q->where('status', $request->status);
+        }
+        if ($request->filled('role')) {
+            $q->where('role', $request->role);
+        }
+
+        if ($request->filled('company_access')) {
+            $q->where('company_access', $request->assignee);
+        }
+
+        $data = $q->orderBy('id', 'desc')->paginate($perPage);
+
+        $sessions = array_values(DB::table('sessions')->pluck('user_id')->toArray());
+        return response()->json([
+            'data' => $data,
+            'sessions' => $sessions,
+        ]);
+        // return view('page.users.index', compact('users','sessions'));
     }
 
     // Create form
@@ -56,7 +96,6 @@ class UserController extends Controller
         $user->role = $request->role;
         $user->status = $request->status ? 1 : 0;
         $user->password = Hash::make($request->password);
-        $user->password_d = $request->password;
         $user->save();
 
         // Assign role if provided (Spatie)
@@ -132,19 +171,11 @@ class UserController extends Controller
         return redirect()->route('Users')->with('success', 'Employee updated');
     }
 
-    // Show profile
-    public function show(User $user)
-    {
-        return view('page.users.show', compact('user'));
-    }
-
+    // Show profileDELETE
     // Delete
     public function destroy(Request $request, User $user)
     {
         $user->delete();
-        if ($request->wantsJson() || $request->ajax()) {
-            return response()->json(['message' => 'Deleted'], 200);
-        }
-        return redirect()->route('Users')->with('success', 'User deleted');
+        return response()->json(['message' => 'Deleted'], 200);
     }
 }
