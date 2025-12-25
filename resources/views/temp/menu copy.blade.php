@@ -7,52 +7,45 @@
 
     <div class="menu-inner-shadow"></div>
 
+    @include('temp.company')
     <ul class="menu-inner py-1">
-
         @foreach ($menu as $item)
-            {{-- @can($item['permission']) --}}
-            <li class="menu-item {{ $item['open'] }}">
+            @if (!empty($item['permission']) && !auth()->user()->can($item['permission']))
+                @continue
+            @endif
+
+            <li class="menu-item {{ $item['open'] ? 'active' : '' }}">
                 @if (isset($item['children']))
-                    <a href="javascript:void(0);" class="d-flex menu-link menu-toggle w-100 waves-effect">
+                    <a href="javascript:void(0)" class="d-flex menu-link menu-toggle w-100 waves-effect">
                         <i class="menu-icon tf-icons {{ $item['icon'] }}"></i>
-                        <div>{{ $item['title'] }}</div>
+                        <span>{{ $item['title'] }}</span>
                     </a>
 
-                    <ul class="menu-sub">
+                    <ul class="menu-sub" style="{{ $item['open'] ? 'display:block;' : '' }}">
                         @foreach ($item['children'] as $child)
-                            {{-- @can($child['permission']) --}}
+                            @if (!empty($child['permission']) && !auth()->user()->can($child['permission']))
+                                @continue
+                            @endif
+
                             <li class="menu-item {{ $child['active'] ? 'active' : '' }}">
-                                <a href="{{ isset($child['route']) ? (is_array($child['route']) ? route($child['route'][0], $child['route'][1]) : route($child['route'])) : '' }}"
-                                    {{-- {{ is_array($child['route']) ? route($child['route'][0], $child['route'][1]) : route($child['route']) }} --}} class="menu-link">
-                                    <div>{{ $child['title'] }}</div>
+                                <a class="menu-link"
+                                    href="{{ isset($child['route']) ? (is_array($child['route']) ? route($child['route'][0], $child['route'][1]) : route($child['route'])) : '' }}">
+                                    {{ $child['title'] }}
                                 </a>
                             </li>
-                            {{-- @endcan --}}
                         @endforeach
-
                     </ul>
                 @else
-                    <a href="{{ is_array($item['route']) ? route($item['route'][0], $item['route'][1]) : route($item['route']) }}"
-                        class="d-flex menu-link w-100 waves-effect">
+                    <a href="{{ isset($item['route']) ? (is_array($item['route']) ? route($item['route'][0], $item['route'][1]) : route($item['route'])) : '' }}"
+                        class="d-flex menu-link w-100 waves-effect {{ $item['active'] ? 'active' : '' }}">
                         <i class="menu-icon tf-icons {{ $item['icon'] }}"></i>
-                        <div>{{ $item['title'] }}</div>
+                        <span>{{ $item['title'] }}</span>
                     </a>
                 @endif
+
             </li>
-            {{-- @endcan --}}
         @endforeach
-
     </ul>
-
 </aside>
-
-
-@can('view users')
-    <!-- menu item -->
-@endcan
-{{-- @if (empty($item['permission']) || auth()->user()->can($item['permission']))
-   <a href="...">{{ $item['title'] }}</a>
-@endif --}}
-@role('Admin')
-    <!-- admin only -->
-@endrole
+<div id="menu-overlay">
+</div>

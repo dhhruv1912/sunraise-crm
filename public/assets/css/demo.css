@@ -14,7 +14,7 @@ nav#fixed-navbar{
 }
 @media (min-width: 991px) {
     #fixed-navbar{
-        padding-left: 16.25rem !important;
+        margin-left: 5rem !important;
     }
     /* aside#layout-menu, */
     div.content-wrapper{

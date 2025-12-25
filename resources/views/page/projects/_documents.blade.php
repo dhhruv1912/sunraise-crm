@@ -1,5 +1,3 @@
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-
 <div class="input-group mb-3">
     <input type="hidden" name="project_id" id="projectId" value="{{ $project->id }}">
     <input type="file" class="form-control" id="fileInput" aria-describedby="inputGroupFileAddon04" name="files[]"

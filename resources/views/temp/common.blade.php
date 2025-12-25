@@ -28,15 +28,17 @@
 
     <!-- Icons -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/fonts/materialdesignicons.css') }}">
+    <link rel="stylesheet" href="<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
 
     <!-- Core CSS -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/css/core.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/vendor/css/theme-default.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/demo.css') }}">
-    <link rel="stylesheet"
-      href="{{ session('active_company') == 'arham' ? '/assets/css/theme-ar.css' : '/assets/css/theme-sr.css' }}"
-      id="theme-css">
-
+    @if (session('active_company') == 'arham')
+        <link rel="stylesheet" href="{{ asset('assets/css/theme-ar.css') }}">
+    @else
+        <link rel="stylesheet" href="{{ asset('assets/css/theme-sr.css') }}">
+    @endif
     <!-- Vendor CSS -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/node-waves/node-waves.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css') }}">
@@ -47,7 +49,7 @@
     <style>
         ::-webkit-scrollbar { width: 7.5px; height: 7.5px; }
         ::-webkit-scrollbar-thumb {
-            background: linear-gradient(90deg, #9055fd 0%, #c4a5fe 100%);
+            background: var(--bs-primary);
             border-radius: 10px;
         }
         ::-webkit-scrollbar-thumb:hover {
@@ -63,7 +65,7 @@
     <script src="{{ asset('assets/js/config.js') }}"></script>
 </head>
 
-<body>
+<body class="sr-sidebar-collapsed">
 
     <!-- Loader -->
     <div class="loader-img position-absolute w-100 h-100">

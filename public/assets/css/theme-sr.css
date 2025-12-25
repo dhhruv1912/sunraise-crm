@@ -1,158 +1,284 @@
 /* =========================================================
-   SUNRAISE INDUSTRIES — THEME COLORS (Prefixed)
+   SUNRAISE INDUSTRIES — CORE BRAND VARIABLES
 ========================================================= */
 
 :root {
-    /* Brand Colors */
-    --sunraise-color-primary: #1E4D8D;
-    --sunraise-color-primary-dark: #173E74;
-    --sunraise-color-orange: #F28C28;
-    --sunraise-color-orange-dark: #D67720;
+    /* Brand */
+    --sunraise-primary: #1E4D8D;
+    --sunraise-primary-dark: #173E74;
+    --sunraise-accent: #F28C28;
+    --sunraise-accent-dark: #D67720;
 
-    /* Secondary Colors */
-    --sunraise-color-navy: #0F2F5A;
-    --sunraise-color-light-blue: #5FA6D6;
-    --sunraise-color-soft-orange: #F7B774;
+    /* Supporting */
+    --sunraise-navy: #0F2F5A;
+    --sunraise-light-blue: #5FA6D6;
+    --sunraise-soft-orange: #F7B774;
 
-    /* Neutral Colors */
-    --sunraise-color-white: #FFFFFF;
-    --sunraise-color-black: #1A1A1A;
-    --sunraise-color-muted: #8AA7C4;
-    --sunraise-color-border: #E2E8F0;
-    --sunraise-color-bg-light: #F4F7FB;
+    /* Neutral */
+    --sunraise-white: #FFFFFF;
+    --sunraise-black: #1A1A1A;
+    --sunraise-muted: #8AA7C4;
+    --sunraise-border: #E2E8F0;
+    --sunraise-bg-light: #F4F7FB;
 
-    /* Light Mode Theme */
-    --sunraise-bg-body: var(--sunraise-color-bg-light);
-    --sunraise-bg-card: var(--sunraise-color-white);
-    --sunraise-bg-header: var(--sunraise-color-white);
-    --sunraise-bg-footer: var(--sunraise-color-navy);
+    /* Elevation */
+    --sunraise-shadow-soft: 0 4px 16px rgba(0, 0, 0, .06);
+    --sunraise-shadow-strong: 0 12px 32px rgba(0, 0, 0, .12);
 
-    --sunraise-text-heading: var(--sunraise-color-primary);
-    --sunraise-text-body: var(--sunraise-color-black);
-    --sunraise-text-muted: var(--sunraise-color-muted);
+    --bs-secondary-color : #1E4D8D;
+    --bs-secondary-color-rgb : #173E74;
 
-    --sunraise-button-primary-bg: var(--sunraise-color-primary);
-    --sunraise-button-primary-text: var(--sunraise-color-white);
-    --sunraise-button-primary-hover: var(--sunraise-color-primary-dark);
-
-    --sunraise-button-accent-bg: var(--sunraise-color-orange);
-    --sunraise-button-accent-text: var(--sunraise-color-white);
-    --sunraise-button-accent-hover: var(--sunraise-color-orange-dark);
-
-    --sunraise-input-bg: var(--sunraise-color-white);
-    --sunraise-input-border: #C8D6E5;
-    --sunraise-input-focus: var(--sunraise-color-primary);
-
-    --sunraise-shadow: rgba(0, 0, 0, 0.06);
+    
+    --bs-secondary-bg : #F28C28;
+    --bs-secondary-bg-rgb : #D67720;
 }
 
 /* =========================================================
-   DARK MODE THEME (Prefixed)
-========================================================= */
-
-[data-theme="dark"] {
-    --sunraise-bg-body: #0B1627;
-    --sunraise-bg-card: #152238;
-    --sunraise-bg-header: #0F1B2E;
-    --sunraise-bg-footer: #0A1324;
-
-    --sunraise-text-heading: #E2ECF8;
-    --sunraise-text-body: #D3DEED;
-    --sunraise-text-muted: #8BA3C5;
-
-    --sunraise-button-primary-bg: var(--sunraise-color-primary);
-    --sunraise-button-primary-text: #FFFFFF;
-    --sunraise-button-primary-hover: #295A9D;
-
-    --sunraise-button-accent-bg: var(--sunraise-color-orange);
-    --sunraise-button-accent-text: #1A1A1A;
-    --sunraise-button-accent-hover: var(--sunraise-color-orange-dark);
-
-    --sunraise-input-bg: #1C2A40;
-    --sunraise-input-border: #3B4F66;
-    --sunraise-input-focus: var(--sunraise-color-light-blue);
-
-    --sunraise-shadow: rgba(0, 0, 0, 0.35);
-}
-
-/* =========================================================
-   EXAMPLE USAGE (Prefixed)
-========================================================= */
-
-body {
-    background: var(--sunraise-bg-body);
-    color: var(--sunraise-text-body);
-}
-
-.card {
-    background: var(--sunraise-bg-card);
-    border: 1px solid var(--sunraise-color-border);
-    box-shadow: 0 2px 6px var(--sunraise-shadow);
-}
-
-.btn-primary {
-    background: var(--sunraise-button-primary-bg);
-    color: var(--sunraise-button-primary-text);
-}
-.btn-primary:hover {
-    background: var(--sunraise-button-primary-hover);
-}
-
-.btn-accent {
-    background: var(--sunraise-button-accent-bg);
-    color: var(--sunraise-button-accent-text);
-}
-.btn-accent:hover {
-    background: var(--sunraise-button-accent-hover);
-}
-
-
-/* =========================================================
-   UNIVERSAL THEME VARIABLE ALIASES (SUNRAISE)
+   SR UI ALIASES (CUSTOM COMPONENTS)
 ========================================================= */
 
 :root {
-    --theme-bg-body: var(--sunraise-bg-body);
-    --theme-bg-card: var(--sunraise-bg-card);
-    --theme-bg-header: var(--sunraise-bg-header);
-    --theme-bg-footer: var(--sunraise-bg-footer);
+    --sr-primary: var(--sunraise-accent);
+    --sr-primary-light: var(--sunraise-soft-orange);
+    --sr-primary-soft: rgba(242, 140, 40, .15);
+    --sr-primary-soft-2: #f5a85942;
 
-    --theme-text-heading: var(--sunraise-text-heading);
-    --theme-text-body: var(--sunraise-text-body);
-    --theme-text-muted: var(--sunraise-text-muted);
+    --sr-sidebar-bg: #ffffff;
+    --sr-card-bg: var(--theme-card-bg);
 
-    --theme-border: var(--sunraise-color-border);
+    --sr-text: var(--theme-text-body);
+    --sr-text-muted: var(--theme-text-muted);
 
-    --theme-button-primary-bg: var(--sunraise-button-primary-bg);
-    --theme-button-primary-text: var(--sunraise-button-primary-text);
-    --theme-button-primary-hover: var(--sunraise-button-primary-hover);
-
-    --theme-input-bg: var(--sunraise-input-bg);
-    --theme-input-border: var(--sunraise-input-border);
-    --theme-input-focus: var(--sunraise-input-focus);
-
-    --theme-shadow: var(--sunraise-shadow);
+    --sr-border-soft: rgba(0, 0, 0, .06);
+    --sr-shadow-soft: var(--sunraise-shadow-soft);
 }
 
+/* =========================================================
+   DARK MODE
+========================================================= */
+
 [data-theme="dark"] {
-    --theme-bg-body: var(--sunraise-bg-body);
-    --theme-bg-card: var(--sunraise-bg-card);
-    --theme-bg-header: var(--sunraise-bg-header);
-    --theme-bg-footer: var(--sunraise-bg-footer);
+    --theme-body-bg: #0B1627;
+    --theme-card-bg: #152238;
+    --theme-header-bg: #0F1B2E;
 
-    --theme-text-heading: var(--sunraise-text-heading);
-    --theme-text-body: var(--sunraise-text-body);
-    --theme-text-muted: var(--sunraise-text-muted);
+    --theme-text-body: #D3DEED;
+    --theme-text-muted: #8BA3C5;
+    --theme-border-color: #2C3E55;
 
-    --theme-border: var(--sunraise-color-border);
+    --theme-input-bg: #1C2A40;
+    --theme-input-border: #3B4F66;
 
-    --theme-button-primary-bg: var(--sunraise-button-primary-bg);
-    --theme-button-primary-text: var(--sunraise-button-primary-text);
-    --theme-button-primary-hover: var(--sunraise-button-primary-hover);
+    --sr-sidebar-bg: #0F1B2E;
+}
 
-    --theme-input-bg: var(--sunraise-input-bg);
-    --theme-input-border: var(--sunraise-input-border);
-    --theme-input-focus: var(--sunraise-input-focus);
 
-    --theme-shadow: var(--sunraise-shadow);
+/* =========================================================
+   THEME TOKENS (BOOTSTRAP-LIKE)
+========================================================= */
+
+:root {
+    /* Backgrounds */
+    --theme-body-bg: var(--sunraise-bg-light);
+    --theme-card-bg: var(--sunraise-white);
+    --theme-header-bg: var(--sunraise-white);
+
+    /* Text */
+    --theme-text-primary: var(--sunraise-primary);
+    --theme-text-body: var(--sunraise-black);
+    --theme-text-muted: var(--sunraise-muted);
+
+    /* Borders */
+    --theme-border-color: var(--sunraise-border);
+
+    /* Primary button */
+    --theme-btn-primary-bg: var(--sunraise-primary);
+    --theme-btn-primary-text: #fff;
+    --theme-btn-primary-hover: var(--sunraise-primary-dark);
+
+    /* Secondary button */
+    --theme-btn-secondary-bg: var(--sunraise-navy);
+    --theme-btn-secondary-text: #fff;
+    --theme-btn-secondary-hover: #0b2548;
+
+    /* Accent button */
+    --theme-btn-accent-bg: var(--sunraise-accent);
+    --theme-btn-accent-text: #fff;
+    --theme-btn-accent-hover: var(--sunraise-accent-dark);
+
+    /* Inputs */
+    --theme-input-bg: #fff;
+    --theme-input-border: #C8D6E5;
+    --theme-input-focus: var(--sunraise-primary);
+
+    /* Status */
+    --theme-success: #22c55e;
+    --theme-warning: var(--sunraise-accent);
+    --theme-danger: #ef4444;
+    --theme-info: var(--sunraise-light-blue);
+}
+
+/* =========================================================
+   BOOTSTRAP COMPONENT OVERRIDES
+========================================================= */
+
+/* =========================
+   Modern Sidebar Styles
+   (Sunraise Theme Correct)
+========================= */
+
+/* Sidebar shell */
+.sr-sidebar {
+    width: 260px;
+    height: 100vh;
+    position: fixed;
+    background: var(--sr-sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--sr-border-soft);
+    transition: width .25s ease;
+    z-index: 1000;
+}
+
+/* Brand */
+.sr-sidebar__brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--sr-border-soft);
+}
+
+.sr-sidebar__brand-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+}
+
+.sr-sidebar__brand img {
+    height: 34px;
+}
+
+.sr-sidebar__toggle {
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: var(--theme-text-primary);
+    cursor: pointer;
+}
+
+/* Menu container */
+.sr-sidebar__nav {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+/* Menu item */
+.sr-menu {
+    margin-bottom: 6px;
+}
+
+/* Parent link */
+.sr-menu__link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    color: var(--sr-text);
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease;
+}
+
+/* Hover (soft solar glow) */
+.sr-menu__link:hover {
+    background: var(--sr-primary-soft);
+    color: var(--sr-primary);
+}
+
+/* Active / Open parent */
+.sr-menu.is-active > .sr-menu__item > .sr-menu__link,
+.sr-menu.is-open > .sr-menu__item > .sr-menu__link {
+    background: linear-gradient(
+        90deg,
+        var(--sr-primary),
+        var(--sr-primary-light)
+    );
+    color: #fff;
+}
+
+/* Icon color when active */
+.sr-menu.is-active i,
+.sr-menu.is-open i {
+    color: #fff;
+}
+
+/* Arrow */
+.sr-menu__arrow {
+    margin-left: auto;
+    font-size: 18px;
+    transition: transform .25s ease;
+}
+
+.sr-menu.is-open .sr-menu__arrow {
+    transform: rotate(180deg);
+}
+
+/* Submenu wrapper */
+.sr-menu__submenu {
+    max-height: 0;
+    overflow: hidden;
+    padding-left: 20px;
+    transition: max-height .25s ease;
+}
+
+.sr-sidebar-collapsed .sr-menu.is-open .sr-menu__submenu {
+    max-height: 0px;
+}
+.sr-sidebar-expand .sr-menu.is-open .sr-menu__submenu {
+    max-height: unset;
+}
+
+/* Submenu link */
+.sr-submenu__link {
+    display: block;
+    padding: 8px;
+    color: var(--sr-primary);
+    text-decoration: none;
+    font-size: 14px;
+    transition: color .2s ease;
+    /* background: var(--sr-primary-soft-2); */
+}
+
+/* Submenu hover */
+.sr-submenu__link:hover {
+    color: var(--sr-primary);
+    background: var(--sr-primary-soft)
+}
+
+/* Submenu active */
+.sr-submenu__link.is-active {
+    /* color: var(--theme-text-primary); */
+    color: var(--sr-primary);
+    background: var(--sr-primary-soft-2);
+    font-weight: 600;
+}
+
+/* =========================
+   Collapsed State
+========================= */
+
+.sr-sidebar-collapsed .sr-sidebar {
+    width: 78px;
+}
+
+.sr-sidebar-collapsed .sr-sidebar span,
+.sr-sidebar-collapsed .sr-menu__arrow {
+    display: none;
+}
+
+.sr-sidebar-collapsed .sr-menu__link {
+    justify-content: center;
 }
