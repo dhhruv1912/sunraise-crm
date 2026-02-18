@@ -1,0 +1,245 @@
+.layout-page {
+    margin-left: 60px
+}
+
+.content-wrapper{
+    margin-top: 10px;
+}
+.container-fluid.flex-grow-1{
+    padding-bottom: 60px !important;
+}
+
+footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin-left: 75px
+}
+
+.card{
+    background-color: var(--bs-white) !important;
+}
+
+/* ================= PAGE SECTIONS ================= */
+.crm-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 35px;
+}
+
+.crm-section {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: var(--bs-box-shadow-sm);
+    padding: 18px;
+}
+
+.crm-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.crm-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--bs-dark);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* ================= TABLE WRAPPER ================= */
+.crm-table-wrapper {
+    background: linear-gradient(
+        180deg,
+        rgba(244,247,251,.6),
+        rgba(255,255,255,1)
+    );
+    padding: 0 12px;
+}
+
+/* ================= TABLE UPGRADE ================= */
+.crm-table {
+    border-collapse: separate;
+    border-spacing: 0 12px;
+}
+
+.crm-table thead th {
+    border: none;
+    color: var(--bs-gray-600);
+    font-size: .8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    background: transparent;
+}
+
+.crm-table tbody tr {
+    background: #fff;
+    box-shadow: var(--bs-box-shadow-sm);
+    transition: all .18s ease;
+}
+
+.crm-table tbody tr:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--bs-box-shadow);
+}
+
+.crm-table td {
+    border: none !important;
+    padding: 16px;
+}
+
+/* ================= AVATAR / ICON ================= */
+.crm-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+/* ================= CRM LOADERS ================= */
+
+/* overlay loader */
+.crm-loader-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,.7);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    border-radius: 20px;
+}
+.crm-loader-overlay.fixed {
+    position: fixed;
+    z-index: 9999;
+}
+
+/* spinner */
+.crm-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--bs-gray-200);
+    border-top-color: var(--bs-primary);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* skeleton rows */
+.crm-skeleton {
+    height: 14px;
+    width: 100%;
+    border-radius: 6px;
+    background: linear-gradient(
+        90deg,
+        #e5e7eb 25%,
+        #f1f5f9 37%,
+        #e5e7eb 63%
+    );
+    background-size: 400% 100%;
+    animation: skeleton 1.4s ease infinite;
+}
+
+@keyframes skeleton {
+    0% { background-position: 100% 0 }
+    100% { background-position: 0 0 }
+}
+
+/* button loader */
+.btn-loading {
+    pointer-events: none;
+    opacity: .7;
+}
+
+/* .layout-wrapper.layout-content-navbar {
+    background: linear-gradient(90deg, #f8fdff, #edfffe, #cee9ff);
+}
+.layout-wrapper.layout-content-navbar:before {
+    background-attachment: fixed;
+    background-image: url(https://t4.ftcdn.net/jpg/13/59/58/53/360_F_1359585357_6CHSKIWovRZ5tVKAzHOqd0UhfPcQRxbV.jpg);
+    background-position: 0 0;
+    content: "";
+    inset: 0;
+    opacity: .1;
+    position: absolute;
+    z-index: 0;
+} */
+
+/* sidebar */
+
+/* Layout */
+.app-wrapper {
+    display: flex;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 250px;
+    /* background: #111827;
+    color: #fff; */
+    min-height: 100vh;
+    transition: transform 0.3s ease;
+}
+
+/* Main */
+.main-content {
+    flex: 1;
+    min-height: 100vh;
+}
+
+/* Toggle Button */
+.menu-toggle {
+    display: none;
+    font-size: 22px;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+/* ---------------- MOBILE ---------------- */
+@media (max-width: 992px) {
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100%;
+        transform: translateX(-100%);
+        z-index: 1000;
+    }
+
+    .sidebar.active {
+        transform: translateX(0);
+    }
+
+    .menu-toggle {
+        display: block;
+    }
+
+    .app-wrapper {
+        flex-direction: column;
+    }
+
+    .layout-page {
+        margin-left: 0px !important;
+    }
+
+    footer {
+        margin-left: opx !important
+    }
+}

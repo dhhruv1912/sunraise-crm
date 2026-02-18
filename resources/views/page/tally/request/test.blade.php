@@ -1,0 +1,22 @@
+<ENVELOPE>
+    <HEADER>
+        <VERSION>1</VERSION>
+        <TALLYREQUEST>Export</TALLYREQUEST>
+        <TYPE>Data</TYPE>
+        <ID>Cash Flow</ID>
+    </HEADER>
+
+    <BODY>
+        <DESC>
+            <STATICVARIABLES>
+                <SVFROMDATE>20240401</SVFROMDATE>
+                <SVTODATE>20250331</SVTODATE>
+                <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+
+                <ISCASHFLOWREPORT>Yes</ISCASHFLOWREPORT>
+                <DSPSHOWMONTHLY>Yes</DSPSHOWMONTHLY>
+                <SHOWBASISOFVALUES>Yes</SHOWBASISOFVALUES>
+            </STATICVARIABLES>
+        </DESC>
+    </BODY>
+</ENVELOPE>

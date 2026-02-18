@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('quote_requests', function (Blueprint $table) {
+            // $table->boolean('quote_master_id')->default(null)->after('assigned_to');
+            if (Schema::hasColumn('quote_requests', 'quote_master_id')) {
+                $table->dropColumn('quote_master_id');
+                $table->string('quote_master_id')->nullable(true)->default(null)->after('assigned_to');
+            }
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('quote_requests', function (Blueprint $table) {
+            $table->dropColumn('quote_master_id');
+        });
+    }
+};

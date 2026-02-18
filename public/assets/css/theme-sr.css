@@ -1,0 +1,163 @@
+/* =========================================================
+   BOOTSTRAP FULL COLOR OVERRIDE — SUNRAISE
+   NO DEFAULT BOOTSTRAP COLOR SURVIVES
+========================================================= */
+
+:root {
+  /* =====================================================
+     BRAND CORE
+  ===================================================== */
+  --bs-primary: #F28C28;
+  --bs-secondary: #1E4D8D;
+  --bs-success: #56CA00;
+  --bs-info: #5FA6D6;
+  --bs-warning: #FFB457;
+  --bs-danger: #E5533D;
+  --bs-light: #F4F7FB;
+  --bs-dark: #0F2F5A;
+
+  /* RGB */
+  --bs-primary-rgb: 242, 140, 40;
+  --bs-secondary-rgb: 30, 77, 141;
+  --bs-success-rgb: 86, 202, 0;
+  --bs-info-rgb: 95, 166, 214;
+  --bs-warning-rgb: 255, 180, 87;
+  --bs-danger-rgb: 229, 83, 61;
+  --bs-light-rgb: 244, 247, 251;
+  --bs-dark-rgb: 15, 47, 90;
+
+  /* =====================================================
+     BODY & TEXT
+  ===================================================== */
+  --bs-body-bg: #F4F7FB;
+  --bs-body-bg-rgb: 244, 247, 251;
+  --bs-body-color: #1A1A1A;
+  --bs-body-color-rgb: 26, 26, 26;
+
+  --bs-emphasis-color: #1E4D8D;
+  --bs-emphasis-color-rgb: 30, 77, 141;
+
+  --bs-secondary-color: rgba(26, 26, 26, 0.75);
+  --bs-secondary-color-rgb: 26, 26, 26;
+
+  --bs-tertiary-color: rgba(26, 26, 26, 0.5);
+  --bs-tertiary-color-rgb: 26, 26, 26;
+
+  /* =====================================================
+     GRAYS (OVERRIDE ALL)
+  ===================================================== */
+  --bs-black: #0F172A;
+  --bs-white: #FFFFFF;
+
+  --bs-gray: #64748B;
+  --bs-gray-dark: #334155;
+
+  --bs-gray-100: #F8FAFC;
+  --bs-gray-200: #E2E8F0;
+  --bs-gray-300: #CBD5E1;
+  --bs-gray-400: #94A3B8;
+  --bs-gray-500: #64748B;
+  --bs-gray-600: #475569;
+  --bs-gray-700: #334155;
+  --bs-gray-800: #1E293B;
+  --bs-gray-900: #0F172A;
+
+  --bs-gray-rgb: 100, 116, 139;
+
+  /* =====================================================
+     LINKS
+  ===================================================== */
+  --bs-link-color: var(--bs-primary);
+  --bs-link-color-rgb: var(--bs-primary-rgb);
+  --bs-link-hover-color: #D67720;
+  --bs-link-hover-color-rgb: 214, 119, 32;
+  --bs-link-decoration: none;
+
+  /* =====================================================
+     BORDERS
+  ===================================================== */
+  --bs-border-color: #E2E8F0;
+  --bs-border-color-translucent: rgba(15, 23, 42, 0.15);
+
+  /* =====================================================
+     FOCUS / RINGS
+  ===================================================== */
+  --bs-focus-ring-width: 0.2rem;
+  --bs-focus-ring-opacity: 0.35;
+  --bs-focus-ring-color: rgba(var(--bs-primary-rgb), 0.35);
+
+  /* =====================================================
+     TABLES
+  ===================================================== */
+  --bs-table-bg: transparent !important;
+  --bs-table-striped-bg: rgba(var(--bs-primary-rgb), 0.04);
+  --bs-table-hover-bg: rgba(var(--bs-primary-rgb), 0.08);
+  --bs-table-border-color: var(--bs-border-color);
+
+  /* =====================================================
+     FORMS
+  ===================================================== */
+  --bs-form-valid-color: var(--bs-success);
+  --bs-form-valid-border-color: var(--bs-success);
+
+  --bs-form-invalid-color: var(--bs-danger);
+  --bs-form-invalid-border-color: var(--bs-danger);
+
+  /* =====================================================
+     ALERTS (SUBTLE)
+  ===================================================== */
+  --bs-primary-bg-subtle: rgba(var(--bs-primary-rgb), 0.12);
+  --bs-secondary-bg-subtle: rgba(var(--bs-secondary-rgb), 0.12);
+  --bs-success-bg-subtle: rgba(var(--bs-success-rgb), 0.12);
+  --bs-info-bg-subtle: rgba(var(--bs-info-rgb), 0.12);
+  --bs-warning-bg-subtle: rgba(var(--bs-warning-rgb), 0.12);
+  --bs-danger-bg-subtle: rgba(var(--bs-danger-rgb), 0.12);
+
+  --bs-primary-text-emphasis: #7A3E00;
+  --bs-secondary-text-emphasis: #0F2F5A;
+  --bs-success-text-emphasis: #225100;
+  --bs-info-text-emphasis: #094766;
+  --bs-warning-text-emphasis: #664800;
+  --bs-danger-text-emphasis: #661E20;
+
+  /* =====================================================
+     SHADOWS
+  ===================================================== */
+  --bs-box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  --bs-box-shadow-sm: 0 3px 10px rgba(15, 23, 42, 0.06);
+  --bs-box-shadow-lg: 0 12px 30px rgba(15, 23, 42, 0.12);
+
+  /* =====================================================
+     GRADIENT
+  ===================================================== */
+  --bs-gradient: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.15),
+    rgba(255, 255, 255, 0)
+  );
+
+  --bs-sidebar-bg: #ffffff;
+
+  --bs-s-primary: #1E4D8D;
+  --bs-s-primary-dark: #173E74;
+  --bs-s-accent: #F28C28;
+  --bs-s-accent-dark: #D67720;
+  --bs-s-navy: #0F2F5A;
+  --bs-s-light-blue: #5FA6D6;
+  --bs-s-soft: #F7B774;
+  --bs-s-black: #1A1A1A;
+  --bs-s-muted: #8AA7C4;
+  --bs-s-border: #E2E8F0;
+  --bs-s-bg-light: #F4F7FB;
+  --bs-s-shadow-soft: 0 4px 16px rgba(0, 0, 0, .06);
+  --bs-s-shadow-strong: 0 12px 32px rgba(0, 0, 0, .12);
+  --bs-primary-soft: #ffefdf;
+}
+
+
+.table{
+   --bs-table-bg: transparent !important;
+  --bs-table-striped-bg: rgba(var(--bs-primary-rgb), 0.04);
+  --bs-table-hover-bg: rgba(var(--bs-primary-rgb), 0.08);
+  --bs-table-border-color: var(--bs-border-color);
+}
