@@ -158,81 +158,46 @@ let menu, animate;
   window.Helpers.setCollapsed(true, false);
 })();
 
-// $(document).on('change','#AttandanceActivity',function(e){
-//     var this_ = $(this)
-//     var selectedValue = $(this).is(':checked');
-//     $(this).prop('checked',selectedValue ? false : true )
-//     $.ajax({
-//         type: "POST",
-//         url: BASE_URL + "/SRI/update-activity",
-//         data: {
-//             activity : selectedValue == true ? 1 : 0,
-//             _token   : $('meta[name="csrf_token"]').attr('content')
-//         },
-//         dataType: "json",
-//         success: function (response) {
-//             if(response.status){
-//                 $("#AttandanceActivity").prop('checked',selectedValue == true ? true : false)
-//             }
-//         }
-//     });
+window.crmFetch = async function (url, options = {}) {
+    try {
+        const res = await fetch(url, options);
 
-// })
+        // Unauthorized
+        if (res.status === 401) {
+            showToast('danger', 'Session expired. Please login again.');
+            setTimeout(() => location.reload(), 1500);
+            throw new Error('Unauthorized');
+        }
 
+        // Forbidden
+        if (res.status === 403) {
+            showToast('danger', 'You do not have permission to perform this action.');
+            throw new Error('Forbidden');
+        }
 
+        // Validation error
+        if (res.status === 422) {
+            const data = await res.json();
+            const msg = Object.values(data.errors ?? {})
+                .flat()
+                .join('<br>');
+            showToast('warning', msg || 'Validation error');
+            throw new Error('Validation');
+        }
 
-// search
+        // Server error
+        if (!res.ok) {
+            showToast('danger', 'Something went wrong. Please try again.');
+            throw new Error('Server error');
+        }
 
-// let searchTimer = null;
+        return res;
 
-// document.getElementById("globalSearch").addEventListener("keyup", function () {
-//     const q = this.value.trim();
-//     if (!q) {
-//         document.getElementById("globalSearchResults").innerHTML = '';
-//         return;
-//     }
-
-//     clearTimeout(searchTimer);
-//     searchTimer = setTimeout(() => {
-//         fetch(`/search/global?q=${encodeURIComponent(q)}`)
-//             .then(res => res.json())
-//             .then(data => renderSearchResults(data));
-//     }, 300);
-// });
-
-// function renderSearchResults(payload) {
-//     const wrap = document.getElementById("globalSearchResults");
-//     wrap.innerHTML = "";
-
-//     const data = payload;
-//     console.log(payload);
-
-//     ['customers', 'leads', 'projects'].forEach(type => {
-//         data[type].forEach(item => {
-//             const div = document.createElement("div");
-//             div.className = "search-item";
-
-//             div.innerHTML = `<strong>${item.label}</strong> <small>(${type})</small>`;
-//             div.onclick = () => selectSearchItem(item);
-//             wrap.appendChild(div);
-//         });
-//     });
-// }
-
-
-// function selectSearchItem(item) {
-//     console.log("Selected:", item);
-
-//     if (item.type === 'customer') {
-//         window.location.href = `/customers/${item.id}/edit`;
-//     }
-//     if (item.type === 'lead') {
-//         window.location.href = `/marketing/${item.id}/view`;
-//     }
-//     if (item.type === 'project') {
-//         window.location.href = `/projects/${item.id}/view`;
-//     }
-// }
+    } catch (err) {
+        console.error('AJAX Error:', err);
+        throw err;
+    }
+};
 
 let timer = null;
 
@@ -291,36 +256,48 @@ window.selectGlobalItem = function (type, id) {
         window.location.href = `/projects/${id}/edit`;
     }
 };
-globalSearchInit();
-document.querySelectorAll('#layout-menu .menu-toggle').forEach(toggle => {
-    toggle.addEventListener('click', function () {
-        const submenu = this.nextElementSibling;
-        submenu.style.display = submenu.style.display === "block" ? "none" : "block";
-    });
-});
-document.addEventListener('DOMContentLoaded', function () {
+// globalSearchInit();
 
-    const menu = document.getElementById('layout-menu');
-    const toggle = document.getElementById('mobile-menu-toggle');
-    const overlay = document.getElementById('menu-overlay');
+function showOverlay(target){
+    const overlay = document.createElement('div');
+    overlay.className = 'crm-loader-overlay';
+    overlay.innerHTML = '<div class="crm-spinner"></div>';
+    target.style.position = 'relative';
+    target.appendChild(overlay);
+}
 
-    // Open mobile menu
-    toggle.addEventListener('click', () => {
-        menu.classList.add('menu-open');
-        overlay.classList.add('active');
-    });
+function hideOverlay(target){
+    const overlay = target.querySelector('.crm-loader-overlay');
+    if(overlay) overlay.remove();
+}
+function showToast(type, message) {
+    const id = `toast-${Date.now()}`;
+    const html = `
+        <div id="${id}" class="toast text-bg-${type} border-0 mb-2">
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button class="btn-close btn-close-white me-2 m-auto"
+                        data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
 
-    // Close when clicking overlay
-    overlay.addEventListener('click', () => {
-        menu.classList.remove('menu-open');
-        overlay.classList.remove('active');
-    });
+    document.getElementById('toastContainer')
+        .insertAdjacentHTML('beforeend', html);
 
-    // Auto close on window resize to desktop
-    window.addEventListener('resize', () => {
-        if (window.innerWidth >= 992) {
-            menu.classList.remove('menu-open');
-            overlay.classList.remove('active');
-        }
-    });
-});
+    const el = document.getElementById(id);
+    const toast = new bootstrap.Toast(el, { delay: 3000 });
+    toast.show();
+
+    el.addEventListener('hidden.bs.toast', () => el.remove());
+}
+
+function showLoader(id = 'globalLoader') {
+    document.getElementById(id)?.classList.remove('d-none');
+}
+
+function hideLoader(id = 'globalLoader') {
+    document.getElementById(id)?.classList.add('d-none');
+}

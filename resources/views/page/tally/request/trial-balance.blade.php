@@ -1,0 +1,17 @@
+<ENVELOPE>
+    <HEADER>
+        <VERSION>1</VERSION>
+        <TALLYREQUEST>Export</TALLYREQUEST>
+        <TYPE>Data</TYPE>
+        <ID>Trial Balance</ID>
+    </HEADER>
+
+    <BODY>
+        <DESC>
+            <STATICVARIABLES>
+                <EXPLODEFLAG>Yes</EXPLODEFLAG>
+                <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+            </STATICVARIABLES>
+        </DESC>
+    </BODY>
+</ENVELOPE>

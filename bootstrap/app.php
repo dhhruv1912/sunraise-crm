@@ -1,10 +1,10 @@
 <?php
 
+use App\Http\Middleware\CompanyAccess;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Http\Middleware\CompanyAccess;
-
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -14,8 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'company' => CompanyAccess::class,
-        ]); 
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function ($e, Request $request) {
+            return redirect()->route('dashboard')->with('error', 'Permission denied or something went wrong.');
+        });
     })->create();

@@ -1,15 +1,10 @@
 <!DOCTYPE html>
-<html lang="en"
-      class="light-style layout-menu-fixed layout-compact"
-      dir="ltr"
-      data-theme="theme-default"
-      data-assets-path="{{ asset('assets/') }}"
-      data-template="vertical-menu-template-free">
+<html lang="en" class="light-style layout-menu-fixed layout-compact" dir="ltr" data-theme="theme-default"
+    data-assets-path="{{ asset('assets/') }}" data-template="vertical-menu-template-free">
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 
     <title>@yield('title') | Sahwa</title>
 
@@ -23,17 +18,20 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Icons -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/fonts/materialdesignicons.css') }}">
-    <link rel="stylesheet" href="<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    {{-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"> --}}
 
     <!-- Core CSS -->
-    <link rel="stylesheet" href="{{ asset('assets/vendor/css/core.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/vendor/css/theme-default.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/demo.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/main.css') }}">
+    {{-- <link rel="stylesheet" href="{{ asset('assets/vendor/css/core.css') }}"> --}}
+    {{-- <link rel="stylesheet" href="{{ asset('assets/vendor/css/theme-default.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/demo.css') }}"> --}}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="https://kit.fontawesome.com/9716f8e5f6.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="{{ asset('assets/css/sidebar.css') }}">
     @if (session('active_company') == 'arham')
         <link rel="stylesheet" href="{{ asset('assets/css/theme-ar.css') }}">
     @else
@@ -45,19 +43,38 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/libs/apex-charts/apex-charts.css') }}">
 
     @yield('head')
+    @yield('styles')
+    @stack('styles')
     <!-- Scrollbar Style -->
     <style>
-        ::-webkit-scrollbar { width: 7.5px; height: 7.5px; }
+        ::-webkit-scrollbar {
+            width: 7.5px;
+            height: 7.5px;
+        }
+
         ::-webkit-scrollbar-thumb {
             background: var(--bs-primary);
             border-radius: 10px;
         }
+
         ::-webkit-scrollbar-thumb:hover {
             background: linear-gradient(180deg, #9055fd 0%, #c4a5fe 100%);
         }
-        .floating-btn { position: fixed; bottom: 3rem; right: 1.5rem; z-index: 1080; }
-        .shadow-danger { box-shadow: 0 1px 20px 1px #ea5455 !important; }
-        .loader-img { z-index: 9999; }
+
+        .floating-btn {
+            position: fixed;
+            bottom: 3rem;
+            right: 1.5rem;
+            z-index: 1080;
+        }
+
+        .shadow-danger {
+            box-shadow: 0 1px 20px 1px #ea5455 !important;
+        }
+
+        .loader-img {
+            z-index: 9999;
+        }
     </style>
 
     <!-- Helpers & Config -->
@@ -65,13 +82,12 @@
     <script src="{{ asset('assets/js/config.js') }}"></script>
 </head>
 
-<body class="sr-sidebar-collapsed">
+<body class="sidebar-collapsed">
 
     <!-- Loader -->
     <div class="loader-img position-absolute w-100 h-100">
-        <img src="{{ asset('assets/img/logo/page.gif') }}"
-             class="w-100 h-100"
-             style="object-fit: cover; opacity: 0.7;">
+        <img src="{{ asset('assets/img/logo/page.gif') }}" class="w-100 h-100"
+            style="object-fit: cover; opacity: 0.7;">
     </div>
 
     <div class="layout-wrapper layout-content-navbar">
@@ -84,10 +100,18 @@
 
                 @include('temp/header')
 
-                <div class="content-wrapper">
+                <div class="container-p-y content-wrapper">
 
                     <div class="container-fluid flex-grow-1">
-                        @yield('content')
+                        <div class="crm-page">
+
+                            @yield('content')
+                        </div>
+                    </div>
+
+                    <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
+                    <div class="crm-loader-overlay fixed d-none" id="globalLoader">
+                        <div class="crm-spinner"></div>
                     </div>
                     @include('temp/footer')
                 </div>
@@ -119,8 +143,13 @@
 
     <!-- Layout JS: moved all inline JS here -->
     <script src="{{ asset('assets/js/layout.js') }}"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        window.CSRF_TOKEN = "{{ csrf_token() }}"
+    </script>
     @yield('scripts')
+    @stack('scripts')
 
 </body>
+
 </html>

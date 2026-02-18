@@ -1,118 +1,217 @@
-<nav id="fixed-navbar" class="navbar navbar-expand-md navbar-dark fixed-top h-px-50">
-    <div class="container-fluid">
+<header class="sr-header shadow-sm">
+    <div class="sr-header__inner">
 
-        <!-- Brand -->
-        {{-- <div class="app-brand demo d-lg-none">
-            <a href="{{ url('/') }}" class="app-brand-link">
-                <img src="{{ asset('assets/img/logo/logo.png') }}" alt="" class="h-px-40">
-            </a>
-        </div> --}}
-        <div class="d-lg-none">
-            @include('temp.company')
+        {{-- LEFT --}}
+        <div class="sr-header__left">
+            <button id="menuToggle" class="menu-toggle">
+                ☰
+            </button>
+            {{-- Breadcrumb / Page title --}}
+            <div class="sr-header__title">
+                
+                <h6 class="mb-0">@yield('title', 'Dashboard')</h6>
+            </div>
+            @yield('headbar')
         </div>
 
-        <!-- Mobile toggle -->
-        <button id="mobile-menu-toggle" class="btn btn-sm btn-primary d-lg-none navbar-toggler" type="button"
-            data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false"
-            aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon" style="color: var(--bs-primary)"></span>
-        </button>
+        {{-- RIGHT --}}
+        <div class="sr-header__right">
+            {{-- Theme toggle (future ready) --}}
+            {{-- <button class="sr-header__icon-btn" id="srThemeToggle">
+                <i class="mdi mdi-weather-night"></i>
+            </button> --}}
 
-        <!-- Right Side -->
-        <ul class="navbar-nav flex-row align-items-center ms-auto w-100 row d-md-flex d-none">
+            {{-- Notifications --}}
+            {{-- <div class="dropdown">
+                <button class="sr-header__icon-btn" data-bs-toggle="dropdown">
+                    <i class="mdi mdi-bell-outline"></i>
+                    <span class="sr-header__dot"></span>
+                </button>
 
-            {{-- Extra buttons from child page --}}
-            <div class="col-2">
-                <div class="position-relative">
-                    {{-- <input type="text" id="globalSearch" class="form-control" placeholder="Search customer / project / lead">
-                    <div id="globalSearchResults" class="search-results"></div> --}}
-                    <div class="global-search-box">
-                        <i class="icon-base ri ri-search-line icon-lg lh-0"></i>
-                        <input id="globalSearchInput" type="text"
-                            class="form-control border-0 shadow-none bg-transparent" placeholder="Search..."
-                            aria-label="Search...">
-                        {{-- <input class="form-control" placeholder="Search customer, lead, project..."> --}}
-                        <div id="globalSearchResults" class="search-dropdown"></div>
+                <div class="dropdown-menu dropdown-menu-end sr-dropdown">
+                    <h6 class="dropdown-header">Notifications</h6>
+                    <div class="sr-dropdown__empty">
+                        No new notifications
                     </div>
                 </div>
-            </div>
-            <div class="d-flex gap-2 mx-2 col justify-content-end">
-                @yield('headbar')
-                <li class="nav-item navbar-dropdown dropdown-user dropdown ms-3 justify-content-end d-flex">
-                    <a class="nav-link dropdown-toggle hide-arrow p-0" href="#" data-bs-toggle="dropdown">
-                        <div class="avatar avatar-online">
+            </div> --}}
+
+            {{-- User --}}
+            <div class="dropdown">
+                <button class="sr-header__user" data-bs-toggle="dropdown">
+                    <div class="sr-header__avatar">
                             <img src="https://api.dicebear.com/7.x/adventurer-neutral/svg?seed={{ auth()->user()->fname }}+{{ auth()->user()->lname }}"
                                  alt="Avatar"
-                                 class="w-px-40 h-auto rounded-circle">
-                            {{-- <img src="{{ asset('assets/img/avatars/1.png') }}" alt="Avatar"
-                                class="w-px-40 h-auto rounded-circle"> --}}
-                        </div>
+                                 class="w-px-40 h-auto rounded-circle" style="max-width: 40px">
+                    </div>
+                    <div class="d-flex flex-column sr-header__user-info d-none">
+                        <span class="sr-header__user-name">
+                            {{ auth()->user()->fname ?? 'User' }} {{ auth()->user()->lname ?? '' }}
+                        </span>
+                        <small class="text-muted">
+                            {{ auth()->user()->email ?? '' }}
+                        </small>
+                    </div>
+                    <i class="mdi mdi-chevron-down"></i>
+                </button>
+
+                <div class="dropdown-menu dropdown-menu-end sr-dropdown">
+                    <a class="dropdown-item" href="{{ route('profile.index') }}">
+                        <i class="mdi mdi-account-outline me-2"></i> Profile
                     </a>
-
-                    <ul class="dropdown-menu dropdown-menu-end w-20 mt-3 py-2">
-
-                        <li>
-                            <a class="dropdown-item pb-2 mb-1" href="#">
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar avatar-online me-2">
-                                        <img src="{{ asset('assets/img/avatars/1.png') }}"
-                                            class="w-px-40 h-auto rounded-circle">
-                                    </div>
-                                    <div class="flex-grow-1">
-                                        <h6 class="mb-0">
-                                            {{ session('staff.fname') }} {{ session('staff.lname') }}
-                                        </h6>
-                                        <small class="text-muted">{{ session('staff.role') }}</small>
-                                    </div>
-                                </div>
-                            </a>
-                        </li>
-
-                        <li>
-                            <div class="dropdown-divider my-1"></div>
-                        </li>
-
-                        <li>
-                            <a class="dropdown-item" href="">{{-- {{ route('Profile') }} --}}
-                                <i class="mdi mdi-account-outline me-1 mdi-20px"></i>
-                                <span>My Profile</span>
-                            </a>
-                        </li>
-
-                        <li>
-                            <a class="dropdown-item" href="{{ route('Setting', ['user', auth()->user()->id]) }}">
-                                <i class="mdi mdi-cog-outline me-1 mdi-20px"></i>
-                                <span>Settings</span>
-                            </a>
-                        </li>
-
-                        <li>
-                            <a class="dropdown-item d-flex" href="#">
-                                <i class="mdi mdi-credit-card-outline me-1 mdi-20px"></i>
-                                <span class="d-flex align-items-center">
-                                    Billing
-                                    <span class="badge badge-sm bg-danger ms-auto">4</span>
-                                </span>
-                            </a>
-                        </li>
-
-                        <li>
-                            <div class="dropdown-divider my-1"></div>
-                        </li>
-
-                        <li>
-                            <a class="dropdown-item" href="{{ route('logout') }}">
-                                <i class="mdi mdi-power me-1 mdi-20px"></i>
-                                <span>Log Out</span>
-                            </a>
-                        </li>
-
-                    </ul>
-                </li>
+                    <a class="dropdown-item" href="{{ route('profile.settings') }}">
+                        <i class="mdi mdi-cog-outline me-2"></i> Settings
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button class="dropdown-item text-danger">
+                            <i class="mdi mdi-logout me-2"></i> Logout
+                        </button>
+                    </form>
+                </div>
             </div>
 
-            <!-- User Dropdown -->
-
-        </ul>
+        </div>
     </div>
-</nav>
+</header>
+
+{{-- =========================
+     Header Interactions
+========================= --}}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // Sidebar toggle (sync with sidebar)
+        document.getElementById('srSidebarToggleBtn')
+            ?.addEventListener('click', () => {
+                document.body.classList.toggle('sr-sidebar-collapsed');
+            });
+
+        // Theme toggle (safe placeholder)
+        document.getElementById('srThemeToggle')
+            ?.addEventListener('click', () => {
+                const theme = document.documentElement.getAttribute('data-theme');
+                document.documentElement.setAttribute(
+                    'data-theme',
+                    theme === 'dark' ? 'light' : 'dark'
+                );
+            });
+
+    });
+</script>
+
+{{-- =========================
+     Header Styles
+========================= --}}
+<style>
+    /* Header shell */
+    .sr-header {
+        position: sticky;
+        top: 0;
+        z-index: 99;
+        background: var(--bs-body-bg);
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+
+    .sr-header__inner {
+        height: 64px;
+        padding: 0 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    /* Left */
+    .sr-header__left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .sr-header__title h6 {
+        font-weight: 600;
+        color: var(--bs-heading-color);
+    }
+
+    /* Right */
+    .sr-header__right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Icon buttons */
+    .sr-header__icon-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        border: none;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--bs-body-color);
+        transition: background .2s ease, color .2s ease;
+    }
+
+    .sr-header__icon-btn:hover {
+        background: var(--bs-primary-bg-subtle);
+        color: var(--bs-primary);
+    }
+
+    /* Notification dot */
+    .sr-header__dot {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--bs-danger);
+    }
+
+    /* User */
+    .sr-header__user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: none;
+        background: transparent;
+    }
+
+    .sr-header__avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: var(--bs-primary);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+    }
+
+    .sr-header__user-info {
+        text-align: left;
+        line-height: 1.2;
+    }
+
+    .sr-header__user-name {
+        font-weight: 600;
+        color: var(--bs-heading-color);
+    }
+
+    /* Dropdown */
+    .sr-dropdown {
+        min-width: 220px;
+        border-radius: 12px;
+        box-shadow: var(--bs-box-shadow-lg);
+    }
+
+    .sr-dropdown__empty {
+        padding: 16px;
+        text-align: center;
+        color: var(--bs-secondary-color);
+    }
+</style>

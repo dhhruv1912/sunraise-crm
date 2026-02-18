@@ -5,32 +5,34 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\CompanyController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\PasswordController;
+use App\Http\Controllers\BatchController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\ItemCategoryController;
+use App\Http\Controllers\ItemController;
 use App\Http\Controllers\LeadController;
+use App\Http\Controllers\PanelAttachmentController;
+use App\Http\Controllers\PanelController;
+use App\Http\Controllers\PanelMovementController;
+use App\Http\Controllers\PanelReceiveController;
+use App\Http\Controllers\PanelSaleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\QuoteMasterController;
+use App\Http\Controllers\QuoteRequestApiController;
 use App\Http\Controllers\QuoteRequestController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TellyController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\UserRoleController;
+use App\Http\Controllers\UserSettingController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\WarehouseController;
-use App\Http\Controllers\PanelController;
-use App\Http\Controllers\PanelReceiveController;
-use App\Http\Controllers\PanelMovementController;
-use App\Http\Controllers\PanelSaleController;
-use App\Http\Controllers\PanelAttachmentController;
-use App\Http\Controllers\ItemCategoryController;
-use App\Http\Controllers\ItemController;
-use App\Http\Controllers\BatchController;
-use App\Http\Controllers\BoqController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Route;
 
@@ -60,9 +62,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/company/select', [CompanyController::class, 'choosePage'])->name('company.select');
     Route::post('/company/select', [CompanyController::class, 'selectCompany'])->name('company.select.submit');
 
-    Route::get('/dashboard/sunraise', fn() => view('page.dash.sunraise'))->name('dashboard.sunraise');
-    Route::get('/dashboard/arham', fn() => view('page.dash.arham'))->name('dashboard.arham');
-    Route::get('/dashboard', fn() => redirect()->route('dashboard.' . session('active_company', 'sunraise')))->name('dashboard');
+    Route::get('/dashboard/sunraise', fn () => view('page.dash.sunraise'))->name('dashboard.sunraise');
+    Route::get('/dashboard/arham', fn () => view('page.dash.arham'))->name('dashboard.arham');
+    Route::get('/dashboard', fn () => redirect()->route('dashboard.'.session('active_company', 'sunraise')))->name('dashboard');
 
     Route::get('/{module?}/setting/{id?}', [SettingsController::class, 'load'])->name('Setting');
     Route::get('/search/global', [SearchController::class, 'search'])->name('search.global');
@@ -70,210 +72,319 @@ Route::middleware(['auth'])->group(function () {
     // Route::middleware(['auth','role:Admin'])->prefix('admin')->group(function(){
 
     // User roles (assign roles to user)
-    Route::get('/user/assign/{user}', [UserRoleController::class, 'edit'])->name('users.assign');
-    Route::post('/user/assign/{user}', [UserRoleController::class, 'update'])->name('users.assign.update');
 
-    Route::group(['prefix' => 'user'], function () {
+    Route::prefix('dashboard/sunraise/ajax')->name('dashboard.sunraise.ajax.')->group(function () {
 
-        Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
-        Route::get('/roles/create', [RoleController::class, 'create'])->name('roles.create');
-        Route::post('/roles/store', [RoleController::class, 'store'])->name('roles.store');
-        Route::get('/roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
-        Route::post('/roles/{role}/update', [RoleController::class, 'update'])->name('roles.update');
-        Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.delete');
-
-        Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');
-        Route::get('/permissions/create', [PermissionController::class, 'create'])->name('permissions.create');
-        Route::post('/permissions/store', [PermissionController::class, 'store'])->name('permissions.store');
-        Route::get('/permissions/{permission}/edit', [PermissionController::class, 'edit'])->name('permissions.edit');
-        Route::post('/permissions/{permission}/update', [PermissionController::class, 'update'])->name('permissions.update');
-        Route::delete('/permissions/{permission}', [PermissionController::class, 'destroy'])->name('permissions.delete');
-
-        Route::group(['prefix' => 'attendance'], function () {
-            Route::get('/list', [AttendanceController::class, 'list'])->name('attendance.log');
-            Route::get('/load', [AttendanceController::class, 'load'])->name('attendance.load');
-            Route::get('/{user}/report', [AttendanceController::class, 'generate_report'])->name('attendance.report');
-            Route::get('/download', [AttendanceController::class, 'download'])->name('attendance.download');
-            Route::post('/upload', [AttendanceController::class, 'upload'])->name('attendance.upload');
-        });
-        Route::get('/', [UserController::class, 'index'])->name('Users');
-        Route::get('/logs', [UserController::class, 'logPage'])->name('UserLogs');
-        Route::get('/list', [UserController::class, 'list'])->name('User.list');
-        Route::get('/profile', [UserController::class, 'profilePage'])->name('Profile');
-        Route::get('/export', [UserController::class, 'exportExcel'])->name('UserExcelDownload');
-        Route::get('/create', [UserController::class, 'create'])->name('users.create');
-        Route::post('/', [UserController::class, 'store'])->name('users.store');
-        Route::get('/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
-        Route::put('/{user}', [UserController::class, 'update'])->name('users.update');
-        Route::delete('/{user}', [UserController::class, 'destroy'])->name('users.delete');
-
-        // Assign roles (page + JSON + update)
-        Route::get('/{user}/assign', [UserRoleController::class, 'edit'])->name('users.assign');
-        Route::get('/{user}/roles-json', [UserRoleController::class, 'rolesJson'])->name('users.roles.json');
-        Route::post('/{user}/assign', [UserRoleController::class, 'update'])->name('users.assign.update');
+        Route::get('/top', [DashboardController::class, 'ajaxTop'])->name('top');
+        Route::get('/invoice-trend', [DashboardController::class, 'ajaxInvoiceTrend'])->name('invoice_trend');
+        Route::get('/emi', [DashboardController::class, 'ajaxEmiSummary'])->name('emi');
+        Route::get('/projects', [DashboardController::class, 'ajaxProjectHealth'])->name('projects');
+        Route::get('/overdue', [DashboardController::class, 'ajaxOverdue'])->name('overdue');
+        Route::get('/upcoming', [DashboardController::class, 'ajaxUpcoming'])->name('upcoming');
+        Route::get('/workload', [DashboardController::class, 'ajaxWorkload'])->name('workload');
+        Route::get('/activity', [DashboardController::class, 'ajaxActivity'])->name('activity');
+        Route::get('/insights', [DashboardController::class, 'ajaxInsights'])->name('insights');
+        Route::get('/ledger-monthly', [DashboardController::class, 'ajaxLedgerMonthly'])->name('ledger_monthly');
     });
 
-    // Quote Master
-    Route::middleware('company:sunraise')->group(function () {
-        Route::prefix('quote')->group(function () {
-            Route::prefix('master')->group(function () {
-                Route::get('/', [QuoteMasterController::class, 'index'])->name('quote_master.index');
-                Route::get('/ajax', [QuoteMasterController::class, 'ajaxList'])->name('quote_master.ajax');
-                Route::get('/create', [QuoteMasterController::class, 'create'])->name('quote_master.create');
-                Route::post('/store', [QuoteMasterController::class, 'store'])->name('quote_master.store');
-                Route::get('/edit/{id}', [QuoteMasterController::class, 'edit'])->name('quote_master.edit');
-                Route::post('/update/{id}', [QuoteMasterController::class, 'update'])->name('quote_master.update');
-                Route::post('/delete', [QuoteMasterController::class, 'delete'])->name('quote_master.delete');
-                Route::get('/export', [QuoteMasterController::class, 'export'])->name('quote_master.export');
-                Route::post('/import', [QuoteMasterController::class, 'import'])->name('quote_master.import');
-            });
+    Route::prefix('users')->name('users.')->middleware('can:users.view')->group(function () {
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/list', [UserController::class, 'ajaxList'])->name('list');
+            Route::get('/widgets', [UserController::class, 'ajaxWidgets'])->name('widgets');
+            Route::post('/store', [UserController::class, 'store'])->name('store');
+            Route::post('/update/{user}', [UserController::class, 'update'])->name('update');
+            Route::post('/status/{user}', [UserController::class, 'changeStatus'])->name('status');
+        });
+        Route::name('view.')->group(function () {
+            Route::get('/', [UserController::class, 'index'])->middleware('can:users.view')->name('list');
+            Route::get('/create', [UserController::class, 'create'])->middleware('can:users.edit')->name('create');
+            Route::get('/edit/{user}', [UserController::class, 'edit'])->middleware('can:users.edit')->name('edit');
+        });
+    });
 
-            Route::prefix('requests')->group(function () {
-                Route::get('/', [QuoteRequestController::class, 'index'])->name('quote_requests.index');
-                Route::get('/ajax', [QuoteRequestController::class, 'ajaxList']);
-                Route::get('/create', [QuoteRequestController::class, 'create'])->name('quote_requests.create');
-                Route::post('/', [QuoteRequestController::class, 'store'])->name('quote_requests.store');
-                Route::post('/delete', [QuoteRequestController::class, 'delete'])->name('quote_requests.delete');
-                Route::get('/{id}/edit', [QuoteRequestController::class, 'edit'])->name('quote_requests.edit');
-                Route::post('/{id}', [QuoteRequestController::class, 'update'])->name('quote_requests.update');
-                Route::get('/{id}/view', [QuoteRequestController::class, 'view'])->name('quote_requests.view');
-                Route::get('/{id}/view-json', [QuoteRequestController::class, 'viewJson'])->name('quote_requests.view.json');
-                Route::post('/{id}/status', [QuoteRequestController::class, 'updateStatus'])->name('quote_requests.status');
-                Route::post('/{id}/quote-master', [QuoteRequestController::class, 'updateQuoteMaster'])->name('quote_requests.quote_master');
-                Route::post('/{id}/assign', [QuoteRequestController::class, 'assign'])->name('quote_requests.assign');
-                Route::post('/{id}/send-mail', [QuoteRequestController::class, 'sendMail'])->name('quote_requests.send');
-                Route::post('/{id}/convert-to-lead', [QuoteRequestController::class, 'createLeadIfMissing'])->name('quote_requests.convert');
-                Route::get('/export', [QuoteRequestController::class, 'export'])->name('quote_requests.export');
-                Route::post('/import', [QuoteRequestController::class, 'import'])->name('quote_requests.import');
-            });
+    Route::prefix('roles')->name('roles.')->middleware('can:users.roles')->group(function () {
+
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/list', [RoleController::class, 'ajaxList'])->name('list');
+            Route::post('/store', [RoleController::class, 'store'])->name('store');
+            Route::delete('/delete/{role}', [RoleController::class, 'destroy'])->name('delete');
+            Route::get('/widgets', [RoleController::class, 'ajaxWidgets'])->name('widgets');
+            Route::post('/{role}/permissions', [RoleController::class, 'syncPermissions'])->name('permissions');
+            Route::get('/{role}/permissions/widgets', [RoleController::class, 'permissionWidgets'])->name('permissions.widgets');
         });
 
-        Route::prefix('quotations')->group(function () {
-            Route::get('/ajax/{id?}', [QuotationController::class, 'ajaxList'])->name('quotations.ajax');
-
-            Route::get('/create', [QuotationController::class, 'create'])->name('quotations.create');
-            Route::post('/save', [QuotationController::class, 'store'])->name('quotations.store');
-
-            Route::get('/{id?}', [QuotationController::class, 'index'])->name('quotations.index');
-            Route::get('/{id}/edit', [QuotationController::class, 'edit'])->name('quotations.edit');
-            Route::put('/{id}', [QuotationController::class, 'update'])->name('quotations.update');
-
-            Route::delete('/{id}', [QuotationController::class, 'destroy'])->name('quotations.destroy');
-
-            Route::get('/{id}/generate-pdf', [QuotationController::class, 'generatePdf'])->name('quotations.generate_pdf');
-            Route::get('/{id}/download', [QuotationController::class, 'downloadPdf'])->name('quotations.download');
-            Route::post('/{id}/send-email', [QuotationController::class, 'sendEmail'])->name('quotations.send_email');
-
-            Route::get('/export', [QuotationController::class, 'export'])->name('quotations.export');
+        Route::name('view.')->group(function () {
+            Route::get('/', [RoleController::class, 'index'])->name('list');
+            Route::get('/{role}/permissions', [RoleController::class, 'permissions'])->name('permissions');
         });
 
-        Route::prefix('marketing')->group(function () {
-            Route::get('/', [LeadController::class, 'index'])->name('marketing.index');
-            Route::get('/ajax', [LeadController::class, 'ajaxList'])->name('marketing.ajax');
-            Route::get('/create', [LeadController::class, 'create'])->name('marketing.create');
-            Route::post('/store', [LeadController::class, 'store'])->name('marketing.store');
-            Route::post('/delete', [LeadController::class, 'delete'])->name('marketing.delete');
-            Route::get('/export', [LeadController::class, 'export'])->name('marketing.export');
-            Route::post('/import', [LeadController::class, 'import'])->name('marketing.import');
+    });
 
-            // Route::get('kanban', [\App\Http\Controllers\LeadController::class, 'kanban'])->name('leads.kanban');
-            // Route::post('{lead}/move', [\App\Http\Controllers\LeadController::class, 'move'])->name('leads.move');
-            Route::get('/{id}/view', [LeadController::class, 'view'])->name('marketing.view');
-            Route::get('/{id}/view/quotations', [LeadController::class, 'getQuotations'])->name('marketing.view.quotation');
-            Route::get('/{id}/view/history', [LeadController::class, 'getHistory'])->name('marketing.view.history');
-            Route::get('/{id}/view-json', [LeadController::class, 'viewJson'])->name('marketing.view.json');
-            Route::get('/api/view/{id}', [LeadController::class, 'apiView'])->name('marketing.apiView');
-            Route::get('/{id}/edit', [LeadController::class, 'edit'])->name('marketing.edit');
-            Route::post('/{id}/update', [LeadController::class, 'update'])->name('marketing.update');
-            Route::post('/{id}/status', [LeadController::class, 'updateStatus'])->name('marketing.status');
-            Route::post('/{id}/assign', [LeadController::class, 'assign'])->name('marketing.assign');
-            Route::get('/{id}/create-project', [LeadController::class, 'getProjectDataFromLead'])->name('lead.createProject');
-            Route::post('/{id}/create-project', [LeadController::class, 'createProjectFromLead'])->name('lead.createProject');
+    Route::prefix('permissions')->name('permissions.')->middleware('can:users.permissions')->group(function () {
+
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/list', [PermissionController::class, 'ajaxList'])->name('list');
+            Route::post('/store', [PermissionController::class, 'store'])->name('store');
+            Route::delete('/delete/{permission}', [PermissionController::class, 'destroy'])->name('delete');
+            Route::get('/widgets', [PermissionController::class, 'ajaxWidgets'])->name('widgets');
         });
 
-        Route::prefix('documents')->name('documents.')->group(function () {
-            Route::get('/', [DocumentController::class, 'index'])->name('index');
-            Route::get('/ajax', [DocumentController::class, 'ajaxList'])->name('ajax');
+        Route::name('view.')->group(function () {
+            Route::get('/', [PermissionController::class, 'index'])->name('list');
+        });
+
+    });
+
+    Route::prefix('attendance')->name('attendance.')->middleware('can:users.attendance')->group(function () {
+
+        Route::name('view.')->group(function () {
+            Route::get('/', [AttendanceController::class, 'index'])->name('list');
+        });
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/list', [AttendanceController::class, 'ajaxList'])->name('list');
+            Route::get('/widgets', [AttendanceController::class, 'ajaxWidgets'])->name('widgets');
+        });
+        Route::get('/report/{user}', [AttendanceController::class, 'generateReport'])->name('report');
+        Route::get('/salary-slip/{user}', [AttendanceController::class, 'salarySlipPdf'])->name('salary.slip');
+
+    });
+
+    Route::prefix('quote-master')->name('quote_master.')->middleware('can:quote.master.view')->group(function () {
+        Route::name('view.')->group(function () {
+            Route::get('/', [QuoteMasterController::class, 'index'])->name('list');
+            Route::get('/create', [QuoteMasterController::class, 'create'])->middleware('can:quote.master.edit')->name('create');
+            Route::get('/{id}/edit', [QuoteMasterController::class, 'edit'])->middleware('can:quote.master.edit')->name('edit');
+        });
+
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/list', [QuoteMasterController::class, 'ajaxList'])->name('list');
+            Route::get('/widgets', [QuoteMasterController::class, 'ajaxWidgets'])->name('widgets');
+            Route::post('/store', [QuoteMasterController::class, 'store'])->name('store');
+            Route::get('/{id}', [QuoteMasterController::class, 'getQuoteMaster'])->name('single');
+            Route::post('/{id}/update', [QuoteMasterController::class, 'update'])->name('update');
+            Route::delete('/{id}/delete', [QuoteMasterController::class, 'destroy'])->name('delete');
+            Route::get('/chart/kw-price', [QuoteMasterController::class, 'kwPriceChart'])->name('chart.kw_price');
+        });
+
+    });
+
+    Route::prefix('quote-requests')->name('quote_requests.')->middleware('can:quote.request.view')->group(function () {
+
+        Route::name('view.')->group(function () {
+            Route::get('/', [QuoteRequestController::class, 'index'])->name('list');
+            Route::get('/create', [QuoteRequestController::class, 'create'])->middleware('can:quote.request.edit')->name('create');
+            Route::get('/{id}', [QuoteRequestController::class, 'view'])->middleware('can:quote.request.edit')->name('show');
+        });
+
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/list', [QuoteRequestController::class, 'ajaxList'])->name('list');
+            Route::get('/widgets', [QuoteRequestController::class, 'ajaxWidgets'])->name('widgets');
+            Route::post('/status/{id}', [QuoteRequestController::class, 'updateStatus'])->name('status');
+            Route::get('/charts', [QuoteRequestController::class, 'ajaxChartData'])->name('charts');
+            Route::post('/assign-user/{id}', [QuoteRequestController::class, 'assignUser'])->name('assign_user');
+            Route::post('/update-quote-master/{id}', [QuoteRequestController::class, 'updateQuoteMaster'])->name('update_quote_master');
+            Route::post('/send-email/{id}', [QuoteRequestController::class, 'sendQuoteEmail'])->name('send_email');
+            Route::post('/convert-to-lead/{id}', [QuoteRequestController::class, 'convertToLead'])->name('convert_to_lead');
+            Route::post('/store', [QuoteRequestController::class, 'store'])->name('store');
+            Route::post('/api/create', [QuoteRequestApiController::class, 'store'])->middleware('auth:sanctum');
+            Route::post('/import', [QuoteRequestController::class, 'import'])->name('import');
+        });
+
+    });
+
+    Route::prefix('leads')->name('leads.')->middleware('can:marketing.lead.view')->group(function () {
+
+        Route::name('view.')->group(function () {
+            Route::get('/', [LeadController::class, 'index'])->name('list');
+            Route::get('/{id}', [LeadController::class, 'view'])->name('show');
+            Route::get('/{id}/edit', [LeadController::class, 'edit'])->middleware("can:marketing.lead.edit")->name('edit');
+            Route::get('/{lead}/convert', [LeadController::class, 'preview'])->middleware("can:marketing.lead.edit")->name('convert.preview');
+
+        });
+
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/list', [LeadController::class, 'ajaxList'])->name('list');
+            Route::get('/widgets', [LeadController::class, 'ajaxWidgets'])->name('widgets');
+            Route::get('/alerts', [LeadController::class, 'ajaxAlerts'])->name('alerts');
+            Route::get('/charts', [LeadController::class, 'ajaxCharts'])->name('charts');
+            Route::post('/update/{lead}', [LeadController::class, 'update'])->name('update');
+            Route::post('/{lead}/convert', [LeadController::class, 'store'])->name('convert.store');
+        });
+
+    });
+
+    Route::prefix('quotations')->name('quotations.')->middleware('can:quotation.view')->group(function () {
+
+        Route::name('view.')->group(function () {
+            Route::get('/', [QuotationController::class, 'index'])->name('list');
+            Route::get('/{quotation}', [QuotationController::class, 'view'])->name('show');
+            Route::get('/create/{lead}', [QuotationController::class, 'create'])->middleware('can:quotation.edit')->name('create');
+        });
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/list', [QuotationController::class, 'ajaxList'])->name('list');
+            Route::get('/widgets', [QuotationController::class, 'ajaxWidgets'])->name('widgets');
+            Route::post('/store', [QuotationController::class, 'store'])->name('store');
+            Route::get('{quotation}/generate-pdf', [QuotationController::class, 'generatePdf'])->name('generate-pdf');
+            Route::post('/{quotation}/send-email', [QuotationController::class, 'sendEmail'])->name('send_email');
+        });
+    });
+
+    Route::prefix('invoices')->name('invoices.')->middleware('can:billing.view')->group(function () {
+
+        Route::name('view.')->group(function () {
+            Route::get('/', [InvoiceController::class, 'index'])->name('list');
+            Route::get('/create', [InvoiceController::class, 'create'])->name('create');
+            Route::get('/{invoice}/edit', [InvoiceController::class, 'edit'])->name('edit');
+            Route::get('/{invoice}', [InvoiceController::class, 'view'])->name('show');
+        });
+
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/list', [InvoiceController::class, 'ajaxList'])->name('list');
+            Route::get('/widgets', [InvoiceController::class, 'ajaxWidgets'])->name('widgets');
+            Route::get('/{invoice}/payments', [InvoiceController::class, 'ajaxPayments'])->name('payments');
+            Route::post('/{invoice}', [InvoiceController::class, 'update'])->name('update');
+
+            Route::post('/', [InvoiceController::class, 'store'])->name('store');
+            Route::post('/{invoice}/payments', [InvoiceController::class, 'storePayment'])->name('payments.store');
+            Route::post('/{invoice}/send', [InvoiceController::class, 'sendEmail'])->name('send');
+            Route::get('/quote-master/{project}', [InvoiceController::class, 'ajaxQuoteMaster'])->name('quoteMaster');
+            Route::post('/{invoice}/generate-pdf', [InvoiceController::class, 'generatePdf'])->name('generatePdf');
+            Route::get('/widgets/upcoming-payments/{invoice_id?}', [InvoiceController::class, 'ajaxUpcomingPayments'])->name('upcomingPayments');
+        });
+
+    });
+
+    Route::prefix('customers')->name('customers.')->group(function () {
+
+        /* ================= VIEW PAGES ================= */
+
+        Route::name('view.')->group(function () {
+            Route::get('/', [CustomerController::class, 'index'])->name('list');
+            Route::get('/{customer}', [CustomerController::class, 'view'])->name('show');
+            Route::get('/{customer}/edit', [CustomerController::class, 'edit'])->name('edit');
+            Route::get('/create', [CustomerController::class, 'create'])->name('create');
+        });
+
+        /* ================= AJAX ================= */
+
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+
+            /* list + widgets */
+            Route::get('/list', [CustomerController::class, 'ajaxList'])->name('list');
+            Route::get('/widgets', [CustomerController::class, 'ajaxWidgets'])->name('widgets');
+            /* customer profile sections */
+            Route::get('/{customer}/activities', [CustomerController::class, 'ajaxActivities'])->name('activities');
+            Route::get('/{customer}/documents', [CustomerController::class, 'ajaxDocuments'])->name('documents');
+            /* create / update */
+            Route::post('/', [CustomerController::class, 'store'])->name('store');
+            Route::put('/{customer}', [CustomerController::class, 'update'])->name('update');
+        });
+
+    });
+
+    Route::prefix('documents')->name('documents.')->middleware('can:project.documents.view')->group(function () {
+
+        Route::name('view.')->group(function () {
+            Route::get('/', [DocumentController::class, 'index'])->name('list');
+            Route::get('/{document}', [DocumentController::class, 'view'])->name('show');
+        });
+
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/list', [DocumentController::class, 'ajaxList'])->name('list');
+            Route::get('/widgets', [DocumentController::class, 'ajaxWidgets'])->name('widgets');
+            Route::get('/advanced-widgets', [DocumentController::class, 'ajaxAdvancedWidgets'])->name('advanced_widgets');
+            Route::get('/filters', [DocumentController::class, 'ajaxFilters'])->name('filters');
             Route::post('/upload', [DocumentController::class, 'upload'])->name('upload');
-            Route::get('/view/{id}', [DocumentController::class, 'view'])->name('view');
-            Route::get('/download/{id}', [DocumentController::class, 'download'])->name('download');
-            Route::delete('/delete/{id}', [DocumentController::class, 'delete'])->name('delete');
-            Route::post('/attach/{id}', [DocumentController::class, 'attachToProject'])->name('attach');
-            Route::post('/detach/{id}', [DocumentController::class, 'detach'])->name('detach');
-            Route::delete('/destroy/{id}', [DocumentController::class, 'delete'])->name('destroy');
-            Route::get('/export', [DocumentController::class, 'export'])->name('export');
+            Route::post('/upload/customer', [DocumentController::class, 'uploadCustomer'])->name('uploadCustomer');
+            Route::post('/upload/project', [DocumentController::class, 'uploadProject'])->name('uploadProject');
+            Route::delete('/{document}', [DocumentController::class, 'delete'])->name('delete');
+        });
+    });
+
+    Route::prefix('projects')->name('projects.')->group(function () {
+
+        Route::name('view.')->group(function () {
+            Route::get('/', [ProjectController::class, 'index'])->name('list');
+            Route::get('/{project}', [ProjectController::class, 'view'])->name('show');
+            Route::get('/{project}/edit', [ProjectController::class, 'edit'])->name('edit');
         });
 
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/list', [ProjectController::class, 'ajaxList'])->name('list');
+            Route::get('/widgets', [ProjectController::class, 'ajaxWidgets'])->name('widgets');
+            Route::get('/{project}/dashboard', [ProjectController::class, 'ajaxDashboard'])->name('dashboard');
+            Route::post('/{project}/status', [ProjectController::class, 'updateStatus'])->name('status');
+            Route::post('/{project}/milestone/{key}', [ProjectController::class, 'completeMilestone'])->name('milestone.complete');
+            Route::post('/{project}/emi/pay', [ProjectController::class, 'payEmi'])->name('emi.pay');
+            Route::post('/{project}', [ProjectController::class, 'update'])->name('update');
+        });
+
+        Route::prefix('{project}/ajax')->name('ajax.')->group(function () {
+            Route::get('/widgets', [ProjectController::class, 'ajaxWid']);
+            Route::get('/status', [ProjectController::class, 'ajaxStatus']);
+            Route::get('/timeline', [ProjectController::class, 'ajaxTimeline']);
+            Route::get('/billing', [ProjectController::class, 'ajaxBilling']);
+            Route::get('/emi', [ProjectController::class, 'ajaxEmi']);
+            Route::get('/documents', [ProjectController::class, 'ajaxDocuments']);
+            Route::get('/activities', [ProjectController::class, 'ajaxActivities']);
+        });
+    });
+
+    Route::prefix('reports')->name('reports.')->group(function () {
+
+        Route::get('/', [ReportController::class, 'index'])->name('index');
+
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/execution', [ReportController::class, 'execution'])->name('execution');
+            Route::get('/delays', [ReportController::class, 'delays'])->name('delays');
+            Route::get('/cashflow', [ReportController::class, 'cashflow'])->name('cashflow');
+            Route::get('/workload', [ReportController::class, 'workload'])->name('workload');
+        });
+
+    });
+
+    // Route::prefix('settings')->name('settings.')->group(function () {
+
+    //     Route::get('/', [SettingsController::class, 'index'])->name('index');
+
+    //     Route::prefix('ajax')->name('ajax.')->group(function () {
+    //         Route::post('/save', [SettingsController::class, 'save'])->name('save');
+    //     });
+
+    // });
+    Route::prefix('settings')->name('settings.')->group(function () {
+        Route::get('/', [SettingsController::class, 'index'])->name('index');
+        Route::get('/{module}', [SettingsController::class, 'module'])->name('module');
+
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            // Route::get('/{group}', [SettingsController::class, 'ajaxGroup'])->name('group');
+            Route::get('/list/{group?}', [SettingsController::class, 'ajaxList'])->name('list');
+            Route::post('/save', [SettingsController::class, 'save'])->name('save');
+
+            Route::post('/create', [SettingsController::class, 'store']);
+            Route::post('/{setting}/update', [SettingsController::class, 'update']);
+            Route::delete('/{setting}', [SettingsController::class, 'destroy']);
+        });
+    });
+
+    Route::prefix('profile')->name('profile.')->group(function () {
+        Route::get('/', [UserController::class, 'profile'])->name('index');
+        Route::get('/settings', [UserSettingController::class, 'index'])->name('settings');
+
+        Route::prefix('ajax')->name('ajax.')->group(function () {
+            Route::get('/settings', [UserSettingController::class, 'ajaxSettings'])->name('settings');
+            Route::post('/settings/save', [UserSettingController::class, 'save'])->name('settings.save');
+            Route::post('/settings/reset', [UserSettingController::class, 'resetToDefault'])->name('settings.reset');
+            Route::get('/basic-info', [UserController::class, 'ajaxBasicInfo'])->name('basic-info');
+            Route::get('/assignments', [UserController::class, 'ajaxAssignments'])->name('assignments');
+            Route::get('/timeline', [UserController::class, 'ajaxTimeline'])->name('timeline');
+        });
+
+    });
+
+    Route::middleware('company:sunraise')->group(function () {
         Route::get('/ajax/projects/search', [DocumentController::class, 'searchProjects'])->name('search.projects');
 
-        Route::prefix('customers')->group(function () {
-            Route::get('/', [CustomerController::class, 'index'])->name('customers.index');
-            Route::get('/ajax', [CustomerController::class, 'ajax'])->name('customers.ajax');
-            Route::get('/create', [CustomerController::class, 'create'])->name('customers.create');
-            Route::post('/store', [CustomerController::class, 'store'])->name('customers.store');
-            Route::get('/edit/{id}', [CustomerController::class, 'edit'])->name('customers.edit');
-            Route::post('/update/{id}', [CustomerController::class, 'update'])->name('customers.update');
-            Route::post('/delete', [CustomerController::class, 'delete'])->name('customers.delete');
-
-            // JSON modal
-            Route::get('/view-json/{id}', [CustomerController::class, 'viewJson']);
-
-            // Global search for Lead/Project linking
-            Route::get('/search', [CustomerController::class, 'searchApi']);
-        });
-
-        Route::prefix('projects')->name('projects.')->group(function () {
-            Route::get('/', [ProjectController::class, 'index'])->name('index');
-            Route::get('/ajax', [ProjectController::class, 'ajaxList'])->name('ajax');
-            Route::get('/create', [ProjectController::class, 'create'])->name('create');
-            Route::post('/store', [ProjectController::class, 'store'])->name('store');
-            Route::prefix('/boq/{project}')->name('boq.')->group(function () {
-                Route::get('/', [BoqController::class, 'index'])->name('index');
-                Route::get('/create', [BoqController::class, 'create'])->name('create');
-                Route::get('/{boq}', [BoqController::class, 'editBoq'])->name('edit.boq');
-                Route::post('/', [BoqController::class, 'store'])->name('store');
-                Route::get('/{boq}/list', [BoqController::class, 'list'])->name('list');
-                Route::get('/{boq}/edit/{item?}', [BoqController::class, 'edit'])->name('edit');
-                Route::delete('/{boq}/delete/{item}', [BoqController::class, 'delete'])->name('delete');
-                Route::post('/{boq}/save/{item?}', [BoqController::class, 'update'])->name('update');
-            });
-            Route::get('/{id}/edit', [ProjectController::class, 'edit'])->name('edit');
-            Route::post('/{id}/update', [ProjectController::class, 'update'])->name('update');
-            Route::post('/{id}/updateEmi', [ProjectController::class, 'updateEmi'])->name('update.emi');
-            Route::get('/{id}/view', [ProjectController::class, 'view'])->name('view'); // html view page
-            Route::get('/{id}/view-json', [ProjectController::class, 'viewJson'])->name('view.json'); // ajax json for modal
-            Route::post('/{id}/assign', [ProjectController::class, 'assign'])->name('assign');
-            Route::post('/{id}/reporter', [ProjectController::class, 'reporter'])->name('reporter');
-            Route::post('/{id}/status', [ProjectController::class, 'changeStatus'])->name('status');
-            Route::post('/{id}/priority', [ProjectController::class, 'changePrority'])->name('priority');
-            Route::post('/{id}/hold', [ProjectController::class, 'toggleHold'])->name('hold');
-            Route::post('/{id}/step/edit', [ProjectController::class, 'editStep'])->name('hold');
-            Route::post('/{id}/step/complete', [ProjectController::class, 'completeCurrentStep'])->name('hold');
-            Route::post('/{id}/delete', [ProjectController::class, 'delete'])->name('delete');
-            Route::post('/{id}/attach-document', [ProjectController::class, 'attachDocument'])->name('attach_document');
-            Route::post('/{id}/detech-document', [ProjectController::class, 'detachDocument'])->name('detech_document');
-            Route::post('/{id}/attach-photos', [ProjectController::class, 'attachPhotos'])->name('attach_photos');
-            Route::delete('/detech-photos/{id}', [ProjectController::class, 'detachPhotos'])->name('detech_photos');
-            Route::get('/{id}/history', [ProjectController::class, 'history'])->name('history.json'); // returns json
-        });
-
-        Route::prefix('billing')->group(function () {
-            Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
-            Route::get('/invoices/ajax', [InvoiceController::class, 'ajaxList'])->name('invoices.ajax');
-            Route::get('/invoices/create', [InvoiceController::class, 'create'])->name('invoices.create');
-            Route::post('/invoices', [InvoiceController::class, 'store'])->name('invoices.store');
-            Route::get('/invoices/{id}', [InvoiceController::class, 'show'])->name('invoices.show');
-            Route::get('/invoices/{id}/view-json', [InvoiceController::class, 'viewJson'])->name('invoices.show.json');
-            Route::get('/invoices/{id}/edit', [InvoiceController::class, 'edit'])->name('invoices.edit');
-            Route::post('/invoices/{id}', [InvoiceController::class, 'update'])->name('invoices.update');
-            Route::delete('/invoices/{id}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
-
-            Route::post('/invoices/{id}/payments', [InvoiceController::class, 'recordPayment'])->name('invoices.payments.store');
-            Route::get('/invoices/{id}/pdf', [InvoiceController::class, 'generatePdf'])->name('invoices.pdf');
-            Route::post('/invoices/{id}/send', [InvoiceController::class, 'sendEmail'])->name('invoices.send');
-            Route::get('/invoices/export', [InvoiceController::class, 'export'])->name('invoices.export');
-            Route::get('/sku/{id}', [InvoiceController::class, 'sku'])->name('invoices.sku');
-        });
     });
 
     Route::middleware(['company:arham'])->group(function () {
@@ -353,7 +464,8 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::prefix('tally')->name('tally.')->group(function () {
-        Route::get('/', [TellyController::class, 'ledger'])->name('index');
+        Route::get('/test', [TellyController::class, 'test'])->name('test');
+        Route::get('/', fn () => view('page.tally.dashboard'))->name('dashboard');
         Route::get('/ledger', [TellyController::class, 'ledger'])->name('ledger');
         Route::get('/stocks', [TellyController::class, 'stocks'])->name('stocks');
         Route::prefix('data')->name('data.')->group(function () {
@@ -361,27 +473,14 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/ledger', [TellyController::class, 'loadLedger'])->name('ledger');
             Route::get('/ledger_voucher', [TellyController::class, 'loadLedgerVouchers'])->name('ledger_voucher');
             Route::get('/stock_voucher', [TellyController::class, 'loadStockVouchers'])->name('stock_voucher');
+            Route::get('/balance-sheet', [TellyController::class, 'balance_sheet'])->name('balance-sheet');
+            Route::get('/trial-balance', [TellyController::class, 'trial_balance'])->name('trial-balance');
+            Route::get('/single-cashflow', [TellyController::class, 'single_cashflow'])->name('single-cashflow');
+            Route::get('/cashflow', [TellyController::class, 'cashflow'])->name('cashflow');
         });
-    });
+        Route::get('/reports/ledger-monthly', fn () => view('page.tally.reports.ledger'))->name('reports.monthly');
+        Route::get('/reports/stock-monthly', fn () => view('page.tally.reports.stock'))->name('reports.stock.monthly');
 
-    // Route::get('/{module?}/setting', [SettingsController::class, 'index'])->name('settings.index');
-    Route::prefix('settings')->group(function () {
-        Route::get('/{module}', [SettingsController::class, 'load'])->name('SettingsModule');
-        Route::get('/get/{name}', [SettingsController::class, 'get']);
-        Route::post('/save', [SettingsController::class, 'save']);
-        Route::post('/save-value/{name}', [SettingsController::class, 'saveValue']);
-        Route::delete('/delete/{id}', [SettingsController::class, 'delete']);
-        Route::post('/reorder', [SettingsController::class, 'reorder']);
-        Route::get('/export', [SettingsController::class, 'export'])->name('SettingsExport');
-        Route::post('/import', [SettingsController::class, 'import'])->name('SettingsImport');
-        // Route::get('/load/{module}', [SettingsController::class, 'load'])->name('settings.load');
-        // Route::get('/get/{name}', [SettingsController::class, 'get'])->name('settings.get');
-        // Route::post('/save', [SettingsController::class, 'save'])->name('settings.save');
-        // Route::post('/save-value/{name}', [SettingsController::class, 'saveValue'])->name('settings.saveValue');
-        // Route::delete('/delete/{id}', [SettingsController::class, 'delete'])->name('settings.delete');
-        // Route::post('/reorder', [SettingsController::class, 'reorder'])->name('settings.reorder');
-        // Route::get('/export', [SettingsController::class, 'export'])->name('settings.export');
-        // Route::post('/import', [SettingsController::class, 'import'])->name('settings.import');
     });
 });
 

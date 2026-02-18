@@ -94,6 +94,10 @@ class Lead extends Model
     {
         return $this->hasMany(Quotation::class, 'lead_id');
     }
+    public function project()
+    {
+        return $this->hasOne(Project::class, 'lead_id');
+    }
 
     // helper
     public function addHistory($event, $message = null, $performedBy = null, $meta = null)

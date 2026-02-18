@@ -4,178 +4,262 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rules\Password;
 use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Lead;
+use App\Models\QuoteRequest;
+use App\Models\Project;
+use Illuminate\Support\Facades\Gate;
+use Carbon\Carbon;
 
 class UserController extends Controller
 {
-    // List users (blade)
-    public function index(Request $request)
+    /**
+     * Users list page (Blade)
+     */
+    public function index()
     {
-        // $users = User::orderBy('id', 'desc')->paginate(20);
-        // $sessions = DB::table('sessions')->pluck('user_id')->values();
-        // $sessions = array_values(DB::table('sessions')->pluck('user_id')->toArray());
-        $role = Role::pluck('name','id');
-        return view('page.users.index',compact('role'));
+        return view('page.users.index');
     }
 
-    public function list(Request $request)
+    /**
+     * AJAX: User list (table data)
+     */
+    public function ajaxList(Request $request)
     {
-        $perPage = (int) $request->get('per_page', 20);
+        $query = User::query();
 
-        $q = User::query();
-
-        if ($search = trim($request->search)) {
-            $q->where(function ($x) use ($search) {
-                $x->where('fname', 'like', "%$search%")
-                    ->orWhere('lname', 'like', "%$search%")
-                    ->orWhere('mobile', 'like', "%$search%")
-                    ->orWhere('email', 'like', "%$search%");
+        /* ================= SEARCH ================= */
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('fname', 'like', "%{$search}%")
+                    ->orWhere('lname', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('mobile', 'like', "%{$search}%");
             });
         }
 
+        /* ================= STATUS FILTER ================= */
         if ($request->filled('status')) {
-            $q->where('status', $request->status);
-        }
-        if ($request->filled('role')) {
-            $q->where('role', $request->role);
+            $query->where('status', $request->status);
         }
 
-        if ($request->filled('company_access')) {
-            $q->where('company_access', $request->assignee);
-        }
+        /* ================= PAGINATION ================= */
+        $perPage = (int) $request->get('per_page', 20);
 
-        $data = $q->orderBy('id', 'desc')->paginate($perPage);
+        $users = $query
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+        $canEdit = Gate::allows('users.edit');
+        
+        return response()->json(["users"=>$users,"canEdit"=>$canEdit]);
+    }
 
-        $sessions = array_values(DB::table('sessions')->pluck('user_id')->toArray());
-        return response()->json([
-            'data' => $data,
-            'sessions' => $sessions,
+    /**
+     * AJAX: KPI widgets
+     */
+    public function ajaxWidgets()
+    {
+        return view('page.users.partials.widgets', [
+            'total' => User::count(),
+            'active' => User::where('status', 1)->count(),
+            'inactive' => User::where('status', 0)->count(),
         ]);
-        // return view('page.users.index', compact('users','sessions'));
     }
 
     // Create form
     public function create()
     {
         $roles = Role::orderBy('name')->get();
+
         return view('page.users.create', compact('roles'));
     }
 
     // Store (expects JSON from fetch or normal form)
     public function store(Request $request)
     {
-        $rules = [
-            'firstname' => 'required|string',
-            'lastname' => 'required|string',
-            'mobile' => 'required|unique:users,mobile',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:4',
-            'salary' => 'required|numeric',
-            'role' => 'required',
-            'status' => 'nullable|in:0,1',
-        ];
+        $validated = $request->validate([
+            'fname' => 'required|string|max:255',
+            'lname' => 'required|string|max:255',
+            'email' => 'nullable|email|unique:users,email',
+            'mobile' => 'nullable|string|max:20',
+            'password' => ['required', 'confirmed', Password::min(6)],
+            'role' => 'required|exists:roles,name',
+            'status' => 'required|boolean',
+        ]);
 
-        $validator = Validator::make($request->all(), $rules);
-        if ($validator->fails()) {
-            // return JSON for AJAX requests
-            if ($request->wantsJson() || $request->ajax()) {
-                return response()->json(['errors' => $validator->errors()], 422);
-            }
-            return back()->withErrors($validator)->withInput();
-        }
+        $user = User::create([
+            'fname' => $validated['fname'],
+            'lname' => $validated['lname'],
+            'email' => $validated['email'] ?? null,
+            'mobile' => $validated['mobile'] ?? null,
+            'password' => Hash::make($validated['password']),
+            'status' => $validated['status'],
+        ]);
 
-        $user = new User();
-        $user->fname = $request->firstname;
-        $user->lname = $request->lastname;
-        $user->mobile = $request->mobile;
-        $user->email = $request->email;
-        $user->salary = $request->salary;
-        $user->role = $request->role;
-        $user->status = $request->status ? 1 : 0;
-        $user->password = Hash::make($request->password);
-        $user->save();
+        // Assign Spatie role
+        $user->assignRole($validated['role']);
 
-        // Assign role if provided (Spatie)
-        if ($request->role) {
-            $role = Role::find($request->role) ?: Role::where('name', $request->role)->first();
-            if ($role) $user->assignRole($role);
-        }
-
-        if ($request->wantsJson() || $request->ajax()) {
-            return response()->json(['message' => 'Employee created', 'data' => $user], 201);
-        }
-
-        return redirect()->route('Users')->with('success', 'Employee created');
+        return response()->json([
+            'status' => 'success',
+            'message' => 'User created successfully',
+        ]);
     }
 
-    // Edit form
     public function edit(User $user)
     {
-        $roles = Role::orderBy('name')->get();
-        return view('page.users.edit', compact('user','roles'));
+        return view('page.users.edit', [
+            'user' => $user,
+            'roles' => Role::orderBy('name')->get(),
+            'currentRole' => $user->roles->pluck('name')->first(),
+        ]);
     }
 
-    // Update
     public function update(Request $request, User $user)
     {
-        $rules = [
-            'firstname' => 'required|string',
-            'lastname' => 'required|string',
-            'mobile' => 'required|unique:users,mobile,' . $user->id,
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'salary' => 'required|numeric',
-            'role' => 'required',
-            'status' => 'nullable|in:0,1',
-        ];
+        $validated = $request->validate([
+            'fname' => 'required|string|max:255',
+            'lname' => 'required|string|max:255',
+            'email' => 'nullable|email|unique:users,email,'.$user->id,
+            'mobile' => 'nullable|string|max:20',
+            'status' => 'required|boolean',
+            'role' => 'required|exists:roles,name',
+            'password' => ['nullable', 'confirmed', Password::min(6)],
+        ]);
 
-        // password optional on update
-        if ($request->filled('password')) {
-            $rules['password'] = 'nullable|min:4';
+        $user->update([
+            'fname' => $validated['fname'],
+            'lname' => $validated['lname'],
+            'email' => $validated['email'] ?? null,
+            'mobile' => $validated['mobile'] ?? null,
+            'status' => $validated['status'],
+        ]);
+
+        // Update password only if provided
+        if (! empty($validated['password'])) {
+            $user->update([
+                'password' => Hash::make($validated['password']),
+            ]);
         }
 
-        $validator = Validator::make($request->all(), $rules);
-        if ($validator->fails()) {
-            if ($request->wantsJson() || $request->ajax()) {
-                return response()->json(['errors' => $validator->errors()], 422);
-            }
-            return back()->withErrors($validator)->withInput();
-        }
+        // Sync role (single-role system)
+        $user->syncRoles([$validated['role']]);
 
-        $user->fname = $request->firstname;
-        $user->lname = $request->lastname;
-        $user->mobile = $request->mobile;
-        $user->email = $request->email;
-        $user->salary = $request->salary;
-        $user->role = $request->role;
-        $user->status = $request->status ? 1 : 0;
-
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
-        }
-
-        $user->save();
-
-        // sync role
-        if ($request->role) {
-            $role = Role::find($request->role) ?: Role::where('name', $request->role)->first();
-            if ($role) $user->syncRoles([$role->name]);
-        }
-
-        if ($request->wantsJson() || $request->ajax()) {
-            return response()->json(['message' => 'Employee updated', 'data' => $user], 200);
-        }
-
-        return redirect()->route('Users')->with('success', 'Employee updated');
+        return response()->json([
+            'status' => 'success',
+            'message' => 'User updated successfully',
+        ]);
     }
 
-    // Show profileDELETE
-    // Delete
-    public function destroy(Request $request, User $user)
+    public function changeStatus(Request $request, User $user)
     {
-        $user->delete();
-        return response()->json(['message' => 'Deleted'], 200);
+        $validated = $request->validate([
+            'status' => 'required|boolean',
+        ]);
+
+        $user->update([
+            'status' => $validated['status'],
+        ]);
+
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'User updated successfully',
+        ]);
+    }
+
+    public function profile()
+    {
+        $userId = Auth::id();
+
+        return view('page.profile.index', [
+            'leadCount'     => Lead::where('assigned_to',$userId)->count(),
+            'quoteCount'    => QuoteRequest::where('assigned_to',$userId)->count(),
+            'projectCount'  => Project::where('assignee',$userId)
+                                    ->where('status','!=','complete')->count(),
+
+            'leads'         => Lead::where('assigned_to',$userId)
+                                ->latest()->limit(10)->get(),
+
+            'projects'      => Project::where('assignee',$userId)
+                                    ->latest()->limit(10)->get(),
+
+            'quoteRequests' => QuoteRequest::with('customer')->where('assigned_to',$userId)
+                                        ->latest()->limit(10)->get(),
+            'role'          => Role::where('id',Auth::user()->role)->pluck('name')->first()
+        ]);
+    }
+
+    public function ajaxTimeline()
+    {
+        $user = Auth::user();
+        $start = Carbon::today();
+        $end   = Carbon::today()->addDays(6);
+
+        $rows = [];
+
+        // 🔹 Example: Leads follow-ups
+        $leads = Lead::where('assigned_to', $user->id)
+            ->whereBetween('next_followup_at', [$start, $end])
+            ->get();
+
+        foreach ($leads as $l) {
+            $rows[] = [
+                'date'  => Carbon::parse($l->next_followup_at)->toDateString(),
+                'time'  => Carbon::parse($l->next_followup_at)->format('H:i'),
+                'type'  => 'Follow-up',
+                'title' => $l->lead_code,
+                'meta'  => $l->remarks
+            ];
+        }
+
+        // 🔹 Example: Projects inspections
+        $projects = Project::where('assignee', $user->id)
+            ->whereBetween('inspection_date', [$start, $end])
+            ->get();
+
+        foreach ($projects as $p) {
+            $rows[] = [
+                'date'  => Carbon::parse($p->inspection_date)->toDateString(),
+                'time'  => '—',
+                'type'  => 'Inspection',
+                'title' => $p->project_code,
+                'meta'  => $p->customer?->name
+            ];
+        }
+
+        // group by date
+        $days = collect();
+        for ($i = 0; $i < 7; $i++) {
+            $d = Carbon::today()->addDays($i)->toDateString();
+            $days[$d] = collect($rows)->where('date', $d)->values();
+        }
+
+        return view('page.profile.widgets.timeline', [
+            'days' => $days
+        ]);
+    }
+
+    public function ajaxBasicInfo()
+    {
+        $u = Auth::user();
+
+        return view('page.profile.widgets.basic_info', compact('u'));
+    }
+
+    /* ================= ASSIGNMENTS ================= */
+    public function ajaxAssignments()
+    {
+        $userId = Auth::id();
+
+        return view('page.profile.widgets.assignments', [
+            'leads'   => Lead::where('assigned_to', $userId)->count(),
+            'projects'=> Project::where('assignee', $userId)
+                                ->where('status','!=','complete')->count(),
+            'quotes'  => QuoteRequest::where('assigned_to', $userId)->count(),
+        ]);
     }
 }

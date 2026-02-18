@@ -41,5 +41,10 @@ class User extends Authenticatable
         }
     }
 
+    public function getFullNameAttribute()
+    {
+        return trim($this->fname . ' ' . $this->lname);
+    }
+    
     protected $hidden = ['password', 'remember_token'];
 }

@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InvoiceItem extends Model
 {
-    use HasFactory;
-
-    protected $table = 'invoice_items';
-
     protected $fillable = [
-        'invoice_id','quote_master_id','description','unit_price','quantity','tax','line_total','meta'
+        'invoice_id',
+        'quote_master_id',
+        'description',
+        'unit_price',
+        'quantity',
+        'tax',
+        'line_total',
+        'meta',
     ];
 
     protected $casts = [
@@ -22,13 +25,18 @@ class InvoiceItem extends Model
         'meta' => 'array',
     ];
 
-    public function invoice()
+    public function invoice(): BelongsTo
     {
-        return $this->belongsTo(Invoice::class,'invoice_id');
+        return $this->belongsTo(Invoice::class);
     }
 
-    public function quoteMaster()
+    protected static function booted()
     {
-        return $this->belongsTo(QuoteMaster::class,'quote_master_id');
+        static::saving(function ($item) {
+            $item->line_total = ($item->unit_price * $item->quantity) + $item->tax;
+        });
+
+        static::saved(fn ($item) => $item->invoice?->recalculateTotals());
+        static::deleted(fn ($item) => $item->invoice?->recalculateTotals());
     }
 }

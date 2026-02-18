@@ -1,9 +1,9 @@
 <ENVELOPE>
     <HEADER>
         <VERSION>1</VERSION>
-        <TALLYREQUEST>EXPORT</TALLYREQUEST>
-        <TYPE>COLLECTION</TYPE>
-        <ID>All Ledgers</ID>
+        <TALLYREQUEST>Export</TALLYREQUEST>
+        <TYPE>Collection</TYPE>
+        <ID>Ledger</ID>
     </HEADER>
 
     <BODY>
@@ -12,14 +12,6 @@
                 <SVCURRENTCOMPANY>{{ $meta['CompanyName'] }}</SVCURRENTCOMPANY>
                 <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
             </STATICVARIABLES>
-            <TDL>
-                <TDLMESSAGE>
-                    <COLLECTION NAME="All Ledgers" ISMODIFY="No">
-                        <TYPE>Ledger</TYPE>
-                        <FETCH>Name, Parent, ClosingBalance</FETCH>
-                    </COLLECTION>
-                </TDLMESSAGE>
-            </TDL>
         </DESC>
     </BODY>
 </ENVELOPE>

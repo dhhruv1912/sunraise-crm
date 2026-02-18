@@ -1,284 +1,163 @@
 /* =========================================================
-   SUNRAISE INDUSTRIES — CORE BRAND VARIABLES
+   BOOTSTRAP FULL COLOR OVERRIDE — SUNRAISE
+   NO DEFAULT BOOTSTRAP COLOR SURVIVES
 ========================================================= */
 
 :root {
-    /* Brand */
-    --sunraise-primary: #1E4D8D;
-    --sunraise-primary-dark: #173E74;
-    --sunraise-accent: #F28C28;
-    --sunraise-accent-dark: #D67720;
+  /* =====================================================
+     BRAND CORE
+  ===================================================== */
+  --bs-primary: #F28C28;
+  --bs-secondary: #1E4D8D;
+  --bs-success: #56CA00;
+  --bs-info: #5FA6D6;
+  --bs-warning: #FFB457;
+  --bs-danger: #E5533D;
+  --bs-light: #F4F7FB;
+  --bs-dark: #0F2F5A;
 
-    /* Supporting */
-    --sunraise-navy: #0F2F5A;
-    --sunraise-light-blue: #5FA6D6;
-    --sunraise-soft-orange: #F7B774;
+  /* RGB */
+  --bs-primary-rgb: 242, 140, 40;
+  --bs-secondary-rgb: 30, 77, 141;
+  --bs-success-rgb: 86, 202, 0;
+  --bs-info-rgb: 95, 166, 214;
+  --bs-warning-rgb: 255, 180, 87;
+  --bs-danger-rgb: 229, 83, 61;
+  --bs-light-rgb: 244, 247, 251;
+  --bs-dark-rgb: 15, 47, 90;
 
-    /* Neutral */
-    --sunraise-white: #FFFFFF;
-    --sunraise-black: #1A1A1A;
-    --sunraise-muted: #8AA7C4;
-    --sunraise-border: #E2E8F0;
-    --sunraise-bg-light: #F4F7FB;
+  /* =====================================================
+     BODY & TEXT
+  ===================================================== */
+  --bs-body-bg: #F4F7FB;
+  --bs-body-bg-rgb: 244, 247, 251;
+  --bs-body-color: #1A1A1A;
+  --bs-body-color-rgb: 26, 26, 26;
 
-    /* Elevation */
-    --sunraise-shadow-soft: 0 4px 16px rgba(0, 0, 0, .06);
-    --sunraise-shadow-strong: 0 12px 32px rgba(0, 0, 0, .12);
+  --bs-emphasis-color: #1E4D8D;
+  --bs-emphasis-color-rgb: 30, 77, 141;
 
-    --bs-secondary-color : #1E4D8D;
-    --bs-secondary-color-rgb : #173E74;
+  --bs-secondary-color: rgba(26, 26, 26, 0.75);
+  --bs-secondary-color-rgb: 26, 26, 26;
 
-    
-    --bs-secondary-bg : #F28C28;
-    --bs-secondary-bg-rgb : #D67720;
+  --bs-tertiary-color: rgba(26, 26, 26, 0.5);
+  --bs-tertiary-color-rgb: 26, 26, 26;
+
+  /* =====================================================
+     GRAYS (OVERRIDE ALL)
+  ===================================================== */
+  --bs-black: #0F172A;
+  --bs-white: #FFFFFF;
+
+  --bs-gray: #64748B;
+  --bs-gray-dark: #334155;
+
+  --bs-gray-100: #F8FAFC;
+  --bs-gray-200: #E2E8F0;
+  --bs-gray-300: #CBD5E1;
+  --bs-gray-400: #94A3B8;
+  --bs-gray-500: #64748B;
+  --bs-gray-600: #475569;
+  --bs-gray-700: #334155;
+  --bs-gray-800: #1E293B;
+  --bs-gray-900: #0F172A;
+
+  --bs-gray-rgb: 100, 116, 139;
+
+  /* =====================================================
+     LINKS
+  ===================================================== */
+  --bs-link-color: var(--bs-primary);
+  --bs-link-color-rgb: var(--bs-primary-rgb);
+  --bs-link-hover-color: #D67720;
+  --bs-link-hover-color-rgb: 214, 119, 32;
+  --bs-link-decoration: none;
+
+  /* =====================================================
+     BORDERS
+  ===================================================== */
+  --bs-border-color: #E2E8F0;
+  --bs-border-color-translucent: rgba(15, 23, 42, 0.15);
+
+  /* =====================================================
+     FOCUS / RINGS
+  ===================================================== */
+  --bs-focus-ring-width: 0.2rem;
+  --bs-focus-ring-opacity: 0.35;
+  --bs-focus-ring-color: rgba(var(--bs-primary-rgb), 0.35);
+
+  /* =====================================================
+     TABLES
+  ===================================================== */
+  --bs-table-bg: transparent !important;
+  --bs-table-striped-bg: rgba(var(--bs-primary-rgb), 0.04);
+  --bs-table-hover-bg: rgba(var(--bs-primary-rgb), 0.08);
+  --bs-table-border-color: var(--bs-border-color);
+
+  /* =====================================================
+     FORMS
+  ===================================================== */
+  --bs-form-valid-color: var(--bs-success);
+  --bs-form-valid-border-color: var(--bs-success);
+
+  --bs-form-invalid-color: var(--bs-danger);
+  --bs-form-invalid-border-color: var(--bs-danger);
+
+  /* =====================================================
+     ALERTS (SUBTLE)
+  ===================================================== */
+  --bs-primary-bg-subtle: rgba(var(--bs-primary-rgb), 0.12);
+  --bs-secondary-bg-subtle: rgba(var(--bs-secondary-rgb), 0.12);
+  --bs-success-bg-subtle: rgba(var(--bs-success-rgb), 0.12);
+  --bs-info-bg-subtle: rgba(var(--bs-info-rgb), 0.12);
+  --bs-warning-bg-subtle: rgba(var(--bs-warning-rgb), 0.12);
+  --bs-danger-bg-subtle: rgba(var(--bs-danger-rgb), 0.12);
+
+  --bs-primary-text-emphasis: #7A3E00;
+  --bs-secondary-text-emphasis: #0F2F5A;
+  --bs-success-text-emphasis: #225100;
+  --bs-info-text-emphasis: #094766;
+  --bs-warning-text-emphasis: #664800;
+  --bs-danger-text-emphasis: #661E20;
+
+  /* =====================================================
+     SHADOWS
+  ===================================================== */
+  --bs-box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  --bs-box-shadow-sm: 0 3px 10px rgba(15, 23, 42, 0.06);
+  --bs-box-shadow-lg: 0 12px 30px rgba(15, 23, 42, 0.12);
+
+  /* =====================================================
+     GRADIENT
+  ===================================================== */
+  --bs-gradient: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.15),
+    rgba(255, 255, 255, 0)
+  );
+
+  --bs-sidebar-bg: #ffffff;
+
+  --bs-s-primary: #1E4D8D;
+  --bs-s-primary-dark: #173E74;
+  --bs-s-accent: #F28C28;
+  --bs-s-accent-dark: #D67720;
+  --bs-s-navy: #0F2F5A;
+  --bs-s-light-blue: #5FA6D6;
+  --bs-s-soft: #F7B774;
+  --bs-s-black: #1A1A1A;
+  --bs-s-muted: #8AA7C4;
+  --bs-s-border: #E2E8F0;
+  --bs-s-bg-light: #F4F7FB;
+  --bs-s-shadow-soft: 0 4px 16px rgba(0, 0, 0, .06);
+  --bs-s-shadow-strong: 0 12px 32px rgba(0, 0, 0, .12);
+  --bs-primary-soft: #ffefdf;
 }
 
-/* =========================================================
-   SR UI ALIASES (CUSTOM COMPONENTS)
-========================================================= */
 
-:root {
-    --sr-primary: var(--sunraise-accent);
-    --sr-primary-light: var(--sunraise-soft-orange);
-    --sr-primary-soft: rgba(242, 140, 40, .15);
-    --sr-primary-soft-2: #f5a85942;
-
-    --sr-sidebar-bg: #ffffff;
-    --sr-card-bg: var(--theme-card-bg);
-
-    --sr-text: var(--theme-text-body);
-    --sr-text-muted: var(--theme-text-muted);
-
-    --sr-border-soft: rgba(0, 0, 0, .06);
-    --sr-shadow-soft: var(--sunraise-shadow-soft);
-}
-
-/* =========================================================
-   DARK MODE
-========================================================= */
-
-[data-theme="dark"] {
-    --theme-body-bg: #0B1627;
-    --theme-card-bg: #152238;
-    --theme-header-bg: #0F1B2E;
-
-    --theme-text-body: #D3DEED;
-    --theme-text-muted: #8BA3C5;
-    --theme-border-color: #2C3E55;
-
-    --theme-input-bg: #1C2A40;
-    --theme-input-border: #3B4F66;
-
-    --sr-sidebar-bg: #0F1B2E;
-}
-
-
-/* =========================================================
-   THEME TOKENS (BOOTSTRAP-LIKE)
-========================================================= */
-
-:root {
-    /* Backgrounds */
-    --theme-body-bg: var(--sunraise-bg-light);
-    --theme-card-bg: var(--sunraise-white);
-    --theme-header-bg: var(--sunraise-white);
-
-    /* Text */
-    --theme-text-primary: var(--sunraise-primary);
-    --theme-text-body: var(--sunraise-black);
-    --theme-text-muted: var(--sunraise-muted);
-
-    /* Borders */
-    --theme-border-color: var(--sunraise-border);
-
-    /* Primary button */
-    --theme-btn-primary-bg: var(--sunraise-primary);
-    --theme-btn-primary-text: #fff;
-    --theme-btn-primary-hover: var(--sunraise-primary-dark);
-
-    /* Secondary button */
-    --theme-btn-secondary-bg: var(--sunraise-navy);
-    --theme-btn-secondary-text: #fff;
-    --theme-btn-secondary-hover: #0b2548;
-
-    /* Accent button */
-    --theme-btn-accent-bg: var(--sunraise-accent);
-    --theme-btn-accent-text: #fff;
-    --theme-btn-accent-hover: var(--sunraise-accent-dark);
-
-    /* Inputs */
-    --theme-input-bg: #fff;
-    --theme-input-border: #C8D6E5;
-    --theme-input-focus: var(--sunraise-primary);
-
-    /* Status */
-    --theme-success: #22c55e;
-    --theme-warning: var(--sunraise-accent);
-    --theme-danger: #ef4444;
-    --theme-info: var(--sunraise-light-blue);
-}
-
-/* =========================================================
-   BOOTSTRAP COMPONENT OVERRIDES
-========================================================= */
-
-/* =========================
-   Modern Sidebar Styles
-   (Sunraise Theme Correct)
-========================= */
-
-/* Sidebar shell */
-.sr-sidebar {
-    width: 260px;
-    height: 100vh;
-    position: fixed;
-    background: var(--sr-sidebar-bg);
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--sr-border-soft);
-    transition: width .25s ease;
-    z-index: 1000;
-}
-
-/* Brand */
-.sr-sidebar__brand {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 18px;
-    border-bottom: 1px solid var(--sr-border-soft);
-}
-
-.sr-sidebar__brand-link {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    text-decoration: none;
-}
-
-.sr-sidebar__brand img {
-    height: 34px;
-}
-
-.sr-sidebar__toggle {
-    background: none;
-    border: none;
-    font-size: 22px;
-    color: var(--theme-text-primary);
-    cursor: pointer;
-}
-
-/* Menu container */
-.sr-sidebar__nav {
-    flex: 1;
-    padding: 10px;
-    overflow-y: auto;
-}
-
-/* Menu item */
-.sr-menu {
-    margin-bottom: 6px;
-}
-
-/* Parent link */
-.sr-menu__link {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    border-radius: 12px;
-    color: var(--sr-text);
-    cursor: pointer;
-    transition: background .2s ease, color .2s ease;
-}
-
-/* Hover (soft solar glow) */
-.sr-menu__link:hover {
-    background: var(--sr-primary-soft);
-    color: var(--sr-primary);
-}
-
-/* Active / Open parent */
-.sr-menu.is-active > .sr-menu__item > .sr-menu__link,
-.sr-menu.is-open > .sr-menu__item > .sr-menu__link {
-    background: linear-gradient(
-        90deg,
-        var(--sr-primary),
-        var(--sr-primary-light)
-    );
-    color: #fff;
-}
-
-/* Icon color when active */
-.sr-menu.is-active i,
-.sr-menu.is-open i {
-    color: #fff;
-}
-
-/* Arrow */
-.sr-menu__arrow {
-    margin-left: auto;
-    font-size: 18px;
-    transition: transform .25s ease;
-}
-
-.sr-menu.is-open .sr-menu__arrow {
-    transform: rotate(180deg);
-}
-
-/* Submenu wrapper */
-.sr-menu__submenu {
-    max-height: 0;
-    overflow: hidden;
-    padding-left: 20px;
-    transition: max-height .25s ease;
-}
-
-.sr-sidebar-collapsed .sr-menu.is-open .sr-menu__submenu {
-    max-height: 0px;
-}
-.sr-sidebar-expand .sr-menu.is-open .sr-menu__submenu {
-    max-height: unset;
-}
-
-/* Submenu link */
-.sr-submenu__link {
-    display: block;
-    padding: 8px;
-    color: var(--sr-primary);
-    text-decoration: none;
-    font-size: 14px;
-    transition: color .2s ease;
-    /* background: var(--sr-primary-soft-2); */
-}
-
-/* Submenu hover */
-.sr-submenu__link:hover {
-    color: var(--sr-primary);
-    background: var(--sr-primary-soft)
-}
-
-/* Submenu active */
-.sr-submenu__link.is-active {
-    /* color: var(--theme-text-primary); */
-    color: var(--sr-primary);
-    background: var(--sr-primary-soft-2);
-    font-weight: 600;
-}
-
-/* =========================
-   Collapsed State
-========================= */
-
-.sr-sidebar-collapsed .sr-sidebar {
-    width: 78px;
-}
-
-.sr-sidebar-collapsed .sr-sidebar span,
-.sr-sidebar-collapsed .sr-menu__arrow {
-    display: none;
-}
-
-.sr-sidebar-collapsed .sr-menu__link {
-    justify-content: center;
+.table{
+   --bs-table-bg: transparent !important;
+  --bs-table-striped-bg: rgba(var(--bs-primary-rgb), 0.04);
+  --bs-table-hover-bg: rgba(var(--bs-primary-rgb), 0.08);
+  --bs-table-border-color: var(--bs-border-color);
 }

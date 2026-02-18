@@ -18,7 +18,7 @@
                      <div class="card h-100 shadow-sm company-card-inner">
                          <div class="card-body p-2">
                              <div class="company-logo">
-                                 <img src="{{ asset('assets/img/logo/' . $company . '-logo.png') }}"
+                                 <img src="{{ asset('assets/img/logo/' . $company . '-logo-f.png') }}"
                                      alt="{{ $company }} Logo">
                              </div>
                          </div>

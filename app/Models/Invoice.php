@@ -2,13 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Invoice extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
         'project_id',
         'customer_id',
@@ -25,27 +24,26 @@ class Invoice extends Model
         'due_date',
         'notes',
         'is_recurring',
-        'meta',
-        'pdf_path',
-        'created_by',
-        'sent_by',
-        'sent_at',
-
-        // recurring
         'recurring_type',
         'recurring_interval',
         'recurring_next_at',
         'recurring_end_at',
+        'pdf_path',
+        'created_by',
+        'sent_by',
+        'sent_at',
+        'meta',
     ];
 
     protected $casts = [
-        'meta' => 'array',
-        'invoice_date' => 'date',
-        'due_date' => 'date',
-        'sent_at' => 'datetime',
+        'meta'              => 'array',
+        'is_recurring'      => 'boolean',
+        'invoice_date'      => 'date',
+        'due_date'          => 'date',
         'recurring_next_at' => 'date',
-        'recurring_end_at' => 'date',
+        'recurring_end_at'  => 'date',
     ];
+
 
     public const STATUS_LABELS = [
         'draft' => 'Draft',
@@ -56,50 +54,67 @@ class Invoice extends Model
         'cancelled' => 'Cancelled',
     ];
 
-    /*----------------------------------------
-     | Relationships
-     ----------------------------------------*/
 
-    public function project()
+    /* ================== RELATIONS ================== */
+
+    public function items(): HasMany
     {
-        return $this->belongsTo(Project::class);
+        return $this->hasMany(InvoiceItem::class);
     }
 
-    public function customer()
+    public function payments(): HasMany
+    {
+        return $this->hasMany(InvoicePayment::class);
+    }
+
+    public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }
 
-    public function items()
+    public function project(): BelongsTo
     {
-        return $this->hasMany(InvoiceItem::class, 'invoice_id');
-    }
-
-    public function payments()
-    {
-        return $this->hasMany(InvoicePayment::class, 'invoice_id');
+        return $this->belongsTo(Project::class);
     }
 
     public function creator()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class,'created_by');
     }
 
-    public function sender()
+    /* ================== BUSINESS LOGIC ================== */
+
+    public function recalculateTotals(): void
     {
-        return $this->belongsTo(User::class, 'sent_by');
+        $subTotal = $this->items()->sum('line_total');
+        $taxTotal = $this->items()->sum('tax');
+
+        $this->sub_total   = $subTotal;
+        $this->tax_total   = $taxTotal;
+        $this->total       = max(($subTotal + $taxTotal) - $this->discount, 0);
+        $this->paid_amount = $this->payments()->sum('amount');
+        $this->balance     = max($this->total - $this->paid_amount, 0);
+
+        $this->status = $this->resolveStatus();
+
+        $this->save();
     }
 
-    public function quoteRequest()
+    protected function resolveStatus(): string
     {
-        return $this->hasOneThrough(
-            QuoteRequest::class,
-            Project::class,
-            'id',                // Project.id
-            'id',                // QuoteRequest.id
-            'project_id',        // Invoice.project_id
-            'lead_id'            // Project.lead_id → Lead → qr
-        );
+        if ($this->paid_amount <= 0) {
+            return $this->isOverdue() ? 'overdue' : $this->status;
+        }
+
+        if ($this->paid_amount >= $this->total) {
+            return 'paid';
+        }
+
+        return 'partial';
     }
 
+    protected function isOverdue(): bool
+    {
+        return $this->due_date && now()->gt($this->due_date) && $this->balance > 0;
+    }
 }

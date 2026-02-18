@@ -2,185 +2,286 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Settings;
-use Illuminate\Http\Request;
-use App\Models\User;
-use App\Models\SessionLog;
-use Hash;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Session;
 use App\Exports\Attendance as AttendanceExport;
+use App\Models\SessionLog;
+use App\Models\Settings;
+use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AttendanceController extends Controller
 {
-    public $months = [
-        '01' => 'January',
-        '02' => 'February',
-        '03' => 'March',
-        '04' => 'April',
-        '05' => 'May',
-        '06' => 'June',
-        '07' => 'July',
-        '08' => 'August',
-        '09' => 'September',
-        '10' => 'October',
-        '11' => 'November',
-        '12' => 'December'
-    ];
-    public function index(Request $request){
-
-    }
-    public function list(Request $request){
-        $users = User::get();
-        return view("page.users.log",compact('request','users'));
+    public function index()
+    {
+        return view('page.attendance.index');
     }
 
-    public function load(Request $request){
-        $user = $request->input('user');
-        $startdate = $request->input('startdate');
-        $enddate = $request->input('enddate');
-        $perPage = $request->get('perPage');
-        $page = $request->get('page');
-        $logs = SessionLog::orderByDesc('created_at');
-        if($user != null){
-            $logs = $logs->where('staffId',$user);
-        }
-        if($startdate != null){
-            $logs = $logs->whereDate('created_at','>=',$startdate);
-        }
-        if($enddate != null){
-            $logs = $logs->whereDate('created_at','<=',$enddate);
-        }
-        $count = $logs->count();
-        $logs = $logs->limit($perPage)
-                    ->skip($perPage * ($page - 1))
-                    ->get();
-        $nextPage = count($logs) > 0 ? $page + 1 : null;
+    /* ================= WIDGETS ================= */
+    public function ajaxWidgets()
+    {
+        $today = Carbon::today();
+
+        $totalPresent = DB::table('session_logs')
+            ->whereDate('created_at', $today)
+            ->distinct('staffId')
+            ->count('staffId');
+
+        $totalUsers = DB::table('users')->count();
+
+        return view('page.attendance.widgets', [
+            'present' => $totalPresent,
+            'absent' => max(0, $totalUsers - $totalPresent),
+            'total' => $totalUsers,
+        ]);
+    }
+
+    /* ================= LIST ================= */
+    public function ajaxList(Request $request)
+    {
+        $date     = $request->get('date', Carbon::today()->toDateString());
+        $perPage  = (int) $request->get('per_page', 10); // default 10
+        $page     = (int) $request->get('page', 1);
+
+        $query = DB::table('session_logs as s')
+            ->select(
+                's.id',
+                's.location',
+                's.device',
+                's.ip',
+                's.created_at',
+                's.updated_at'
+            )
+            ->whereDate('s.created_at', $date)
+            ->orderBy('s.created_at', 'desc');
+
+        /**
+         * IMPORTANT:
+         * We clone the query for total count
+         * (Query Builder pagination best practice)
+         */
+        $total = (clone $query)->count();
+
+        $logs = $query
+            ->forPage($page, $perPage)
+            ->get();
+
         return response()->json([
-            'data'      => $logs,
-            'nextPage'  => $nextPage,
-            'status'    => true,
-            'total'     => $count
-        ], 200);
+            'data' => $logs,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page'     => $perPage,
+                'total'        => $total,
+                'last_page'    => (int) ceil($total / $perPage),
+            ],
+        ]);
     }
 
-    public function generate_report(Request $request, $user) {
-        $date_ = $request->input('month');
-        $year = $month = null;
+    public function generateReport(Request $request, $userId)
+    {
+        $date_ = $request->input('month'); // YYYY-MM
+        abort_if(! $date_, 400, 'Month is required');
 
-        if ($date_) {
-            $date = explode('-', $date_);
-            $year = $date[0] ?? null;
-            $month = $date[1] ?? null;
-        }
-        $startDate = \Carbon\Carbon::create($year, $month, 1);
+        [$year, $month] = explode('-', $date_);
+
+        $startDate = Carbon::create($year, $month, 1);
         $endDate = $startDate->copy()->endOfMonth();
-        $totalDays = $startDate->diffInDays($endDate) + 1;
+
+        /* ================= WORKING DAYS ================= */
+        $totalDays = $startDate->daysInMonth;
         $sundays = 0;
-        while ($startDate->lte($endDate)) {
-            if ($startDate->isSunday()) {
+
+        $cursor = $startDate->copy();
+        while ($cursor->lte($endDate)) {
+            if ($cursor->isSunday()) {
                 $sundays++;
             }
-            $startDate->addDay();
+            $cursor->addDay();
         }
+
         $workingDays = $totalDays - $sundays;
 
-        // Get user details
-        $user_data = User::where('id', $user)->select('fname', 'lname','salary')->first();
-        $user_name = $user_data ? $user_data->fname . ' ' . $user_data->lname : '';
+        /* ================= USER ================= */
+        $user = User::select('fname', 'lname', 'salary')->findOrFail($userId);
+        $userName = "{$user->fname} {$user->lname}";
 
-        // Set the range (e.g., "September 2024")
-        $range = $this->months[$month] . " " . $year;
+        $range = $startDate->format('F Y');
 
-        // Fetch logs
-        $logs = SessionLog::orderBy('created_at');
-        if ($user) {
-            $logs->where('staffId', $user);
-        }
-        if ($month && $year) {
-            $logs->whereMonth('created_at', $month)->whereYear('created_at', $year);
-        }
+        /* ================= FETCH LOGS ================= */
+        $logs = SessionLog::where('staffId', $userId)
+            ->whereMonth('created_at', $month)
+            ->whereYear('created_at', $year)
+            ->orderBy('created_at')
+            ->get();
 
-        $data = $logs->get();
-        $at = [];
-        $last_in = '';
-        $last_out = '';
-        foreach ($data as $value) {
-            $dateTime = $value->created_at;
-            $date = $dateTime->format('Y-m-d');
-            $time = $dateTime->format('H:i:s');
+        $attendance = [];
+        $lastIn = null;
+        $lastOut = null;
 
-            // Initialize array for the date if it doesn't exist
-            $at[$date] = $at[$date] ?? [
-                "in" => '',
-                "out" => '',
-                "hours" => 0,
-                "break" => 0  // Track total break time in hours
+        foreach ($logs as $log) {
+            $date = $log->created_at->format('Y-m-d');
+            $time = $log->created_at->format('H:i:s');
+
+            $attendance[$date] ??= [
+                'in' => '',
+                'out' => '',
+                'hours' => '00:00',
+                'break' => '00:00',
             ];
 
-            // Check for 'Started' in the message
-            if (strpos($value->message, 'Started') !== false) {
-                if($at[$date]["in"] != '' && $at[$date]["out"] != ''){
-                    $at[$date]["break"] = $this->add_hours($last_out, $time,$at[$date]["break"]);
-                }else{
-                    $at[$date]["in"] = $time;
+            if (str_contains($log->message, 'Started')) {
+                if ($attendance[$date]['in'] && $attendance[$date]['out']) {
+                    $attendance[$date]['break'] =
+                        $this->addHours($lastOut, $time, $attendance[$date]['break']);
+                } else {
+                    $attendance[$date]['in'] = $time;
                 }
-                $last_in = $time;
+                $lastIn = $time;
             }
 
-            // Check for 'Ended' in the message
-            if (strpos($value->message, 'Ended') !== false) {
-                $at[$date]["out"] = $time;
-                if ($at[$date]["in"] != '') {
-                    $at[$date]["hours"] = $this->add_hours($last_in, $at[$date]["out"], $at[$date]["hours"]);
+            if (str_contains($log->message, 'Ended')) {
+                $attendance[$date]['out'] = $time;
+
+                if ($attendance[$date]['in']) {
+                    $attendance[$date]['hours'] =
+                        $this->addHours($lastIn, $time, $attendance[$date]['hours']);
                 }
-                $last_out = $time;
+                $lastOut = $time;
             }
         }
-        $salary = $user_data->salary;
-        $work_hours = Settings::where('name', 'attendance_hours')->value('value');
-        $total_hours = array_column($at, 'hours');
 
-        // Convert all hours to decimal
-        // dd($total_hours);
-        $decimal_minutes = array_map(function ($time) {
-            if($time == 0 || $time == "0"){
-                $time = "00:00";
+        /* ================= SALARY CALC ================= */
+        $workHoursPerDay = (int) Settings::where('name', 'attendance_hours')->value('value');
+        $salary = $user->salary;
+
+        $workedMinutes = collect($attendance)->sum(function ($row) {
+            [$h, $m] = explode(':', $row['hours']);
+
+            return ($h * 60) + $m;
+        });
+
+        $workingMinutes = $workingDays * $workHoursPerDay * 60;
+
+        $perDaySalary = $salary / $workingDays;
+        $perHourSalary = $perDaySalary / $workHoursPerDay;
+        $perMinuteSalary = $perHourSalary / 60;
+
+        $payableSalary = ceil($perMinuteSalary * $workedMinutes);
+
+        return Excel::download(
+            new AttendanceExport(
+                $attendance,
+                $date_,
+                $userName,
+                $range,
+                $workedMinutes,
+                $workingMinutes,
+                $payableSalary
+            ),
+            'attendance_'.$date_.'.xlsx'
+        );
+    }
+
+    /* ================= HELPER ================= */
+    private function addHours($inTime, $outTime, $current)
+    {
+        $in = Carbon::createFromFormat('H:i:s', $inTime);
+        $out = Carbon::createFromFormat('H:i:s', $outTime);
+
+        $minutes = $in->diffInMinutes($out);
+
+        [$ch, $cm] = explode(':', $current);
+        $total = ($ch * 60) + $cm + $minutes;
+
+        return sprintf('%02d:%02d', intdiv($total, 60), $total % 60);
+    }
+
+    public function salarySlipPdf(Request $request, $userId)
+    {
+        $date_ = $request->input('month');
+        abort_if(! $date_, 400, 'Month is required');
+
+        [$year, $month] = explode('-', $date_);
+
+        $startDate = Carbon::create($year, $month, 1);
+        $endDate = $startDate->copy()->endOfMonth();
+
+        /* ================= WORKING DAYS ================= */
+        $totalDays = $startDate->daysInMonth;
+        $sundays = 0;
+
+        $cursor = $startDate->copy();
+        while ($cursor->lte($endDate)) {
+            if ($cursor->isSunday()) {
+                $sundays++;
             }
-            list($hours, $minutes) = explode(':', $time);
-            return $minutes + ($hours * 60);
-        }, $total_hours);
+            $cursor->addDay();
+        }
 
+        $workingDays = $totalDays - $sundays;
 
-        // Sum the decimal hours
-        $sum_decimal_minutes = array_sum($decimal_minutes);
+        /* ================= USER ================= */
+        $user = User::select('fname', 'lname', 'salary')->findOrFail($userId);
 
-        // Round off the sum to 2 decimal places
-        $worked_minutes = round($sum_decimal_minutes);
+        /* ================= ATTENDANCE ================= */
+        $logs = SessionLog::where('staffId', $userId)
+            ->whereMonth('created_at', $month)
+            ->whereYear('created_at', $year)
+            ->orderBy('created_at')
+            ->get();
 
-        // Calculate working hours and convert to hours and minutes
-        $working_minutes = $workingDays * $work_hours * 60;
-        $per_day_salary = $salary / $workingDays;
-        $per_hour_salary = $per_day_salary / $work_hours;
-        $per_minute_salary = $per_hour_salary / 60;
-        $payable_salary = ceil($per_minute_salary * $worked_minutes);
+        $attendance = [];
+        $lastIn = null;
 
+        foreach ($logs as $log) {
+            $date = $log->created_at->format('Y-m-d');
+            $time = $log->created_at->format('H:i:s');
 
-        return Excel::download(new AttendanceExport($at, $date_, $user_name, $range, $worked_minutes, $working_minutes, $payable_salary), 'attendance.xlsx');
+            $attendance[$date] ??= ['hours' => '00:00'];
+
+            if (str_contains($log->message, 'Started')) {
+                $lastIn = $time;
+            }
+
+            if (str_contains($log->message, 'Ended') && $lastIn) {
+                $attendance[$date]['hours'] =
+                    $this->addHours($lastIn, $time, $attendance[$date]['hours']);
+            }
+        }
+
+        /* ================= SALARY ================= */
+        $workHours = (int) Settings::where('name', 'attendance_hours')->value('value');
+        $salary = $user->salary;
+
+        $workedMinutes = collect($attendance)->sum(function ($row) {
+            [$h, $m] = explode(':', $row['hours']);
+
+            return ($h * 60) + $m;
+        });
+
+        $workingMinutes = $workingDays * $workHours * 60;
+
+        $perDaySalary = $salary / $workingDays;
+        $perHourSalary = $perDaySalary / $workHours;
+        $perMinuteSalary = $perHourSalary / 60;
+
+        $payableSalary = ceil($perMinuteSalary * $workedMinutes);
+
+        /* ================= PDF ================= */
+        $pdf = Pdf::loadView('pdf.salary-slip', [
+            'user' => $user,
+            'month' => $startDate->format('F Y'),
+            'workingDays' => $workingDays,
+            'workedMinutes' => $workedMinutes,
+            'workingMinutes' => $workingMinutes,
+            'salary' => $salary,
+            'payableSalary' => $payableSalary,
+        ])->setPaper('A4');
+
+        return $pdf->download(
+            'salary-slip-'.$user->fname.'-'.$year.'-'.$month.'.pdf'
+        );
     }
-
-    // Function to add hours and minutes
-    public function add_hours($in_time, $out_time, $current_hours) {
-        $in = \Carbon\Carbon::createFromFormat('H:i:s', $in_time);
-        $out = \Carbon\Carbon::createFromFormat('H:i:s', $out_time);
-        $hours_diff = $in->diffInHours($out);
-        $minutes_diff = $in->diffInMinutes($out) % 60;
-        list($current_hours, $current_minutes) = sscanf($current_hours, '%d:%d');
-        $total_minutes = $current_minutes + $minutes_diff;
-        $extra_hours = intdiv($total_minutes, 60);
-        $total_minutes = $total_minutes % 60;
-        $total_hours = $current_hours + $hours_diff + $extra_hours;
-        return sprintf('%02d:%02d', $total_hours, $total_minutes);
-    }
-
 }

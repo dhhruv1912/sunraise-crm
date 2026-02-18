@@ -22,7 +22,7 @@ class Attendance implements FromView, ShouldAutoSize
     }
 
     public function view(): View{
-        return view('download.attandance',[
+        return view('admin.download.attandance',[
             'at' => $this->at,
             'date_' => $this->date_,
             'user_name' => $this->user_name,

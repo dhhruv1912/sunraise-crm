@@ -17,15 +17,18 @@ document.addEventListener("DOMContentLoaded", () => {
 // Reload
 // ------------------------------
 function reload(){
+    document.querySelector("#table-loader").classList.remove('d-none');
     localStorage.removeItem('STOCKITEM');
     loadHome();
+
+    document.querySelector("#table-loader").classList.add('d-none');
 }
 
 // ------------------------------
 // Load Home
 // ------------------------------
 function loadHome(){
-    document.querySelector("#table-loader").style.display = "block";
+    document.querySelector("#table-loader").classList.remove('d-none');
 
     let stored = localStorage.getItem("STOCKITEM");
 
@@ -45,14 +48,14 @@ function loadHome(){
         get_stocks();
     }
 
-    document.querySelector("#table-loader").style.display = "none";
+    document.querySelector("#table-loader").classList.add('d-none');
 }
 
 // ------------------------------
 // GET stocks via fetch()
 // ------------------------------
 async function get_stocks(){
-    document.querySelector("#table-loader").style.display = "block";
+    document.querySelector("#table-loader").classList.remove('d-none');
 
     const res = await fetch(`/tally/data/stocks`);
     const response = await res.json();
@@ -64,7 +67,7 @@ async function get_stocks(){
         process_stocks(stocks);
     }
 
-    document.querySelector("#table-loader").style.display = "none";
+    document.querySelector("#table-loader").classList.add('d-none');
 }
 
 // ------------------------------
@@ -169,7 +172,7 @@ function loadStockByGroup(GROUP){
         </tr>
     `;
 
-    document.querySelector("#table-loader").style.display = "block";
+    document.querySelector("#table-loader").classList.remove('d-none');
 
     if (GROUP === "All"){
         Object.values(LEDGERS).forEach(items => {
@@ -183,7 +186,7 @@ function loadStockByGroup(GROUP){
         });
     }
 
-    document.querySelector("#table-loader").style.display = "none";
+    document.querySelector("#table-loader").classList.add('d-none');
 }
 
 function appendStockRow(stock, table){
@@ -208,32 +211,26 @@ function appendStockRow(stock, table){
 // Load Voucher of Stock
 // ------------------------------
 async function loadVoucherOfStock(NAME, OPENING){
-    console.log("NAME",NAME);
-    console.log("OPENING",OPENING);
 
     NAME = decodeURIComponent(NAME);
     OPENING = JSON.parse(decodeURIComponent(OPENING));
-    console.log("NAME",NAME);
-
-    console.log("OPENING",OPENING);
 
     changeTitle({ route : "ledger", ledger: NAME });
+    const table = document.querySelector("#tally-datatable tbody");
+    const thead = document.querySelector("#tally-datatable thead");
 
-    document.querySelector("#table-loader").style.display = "block";
-
+    document.querySelector("#table-loader").classList.remove('d-none');
     const res = await fetch(`/tally/data/stock_voucher?stock=${encodeURIComponent(NAME)}`);
     const response = await res.json();
     const vouchers = response.data;
 
-    const table = document.querySelector("#tally-datatable tbody");
-    const thead = document.querySelector("#tally-datatable thead");
-
+    renderStockMovementWidget(vouchers, OPENING);
     table.innerHTML = "";
     thead.innerHTML = `
         <tr class="table-secondary">
             <th rowspan="2" class="text-center">Date</th>
-            <th rowspan="2" class="text-center">Type</th>
             <th rowspan="2" class="text-center">Account</th>
+            <th rowspan="2" class="text-center">Type</th>
             <th colspan="2" class="text-center">Inwards</th>
             <th colspan="2" class="text-center">Outwards</th>
             <th colspan="2" class="text-center">Closing</th>
@@ -313,7 +310,67 @@ async function loadVoucherOfStock(NAME, OPENING){
         </tr>
     `;
 
-    document.querySelector("#table-loader").style.display = "none";
+    document.querySelector("#table-loader").classList.add('d-none');
+}
+function renderStockMovementWidget(vouchers, opening) {
+
+    if (!vouchers || !opening) return;
+
+    document.getElementById('stockMovementWidget').classList.remove('d-none');
+
+    let inQty = 0, inVal = 0;
+    let outQty = 0, outVal = 0;
+
+    vouchers.forEach(v => {
+        if (v.in?.quentity) {
+            inQty += parseFloat(v.in.quentity);
+            inVal += parseFloat(v.in.amount || 0);
+        }
+        if (v.out?.quentity) {
+            outQty += parseFloat(v.out.quentity);
+            outVal += parseFloat(v.out.amount || 0);
+        }
+    });
+
+    const openingQty = parseFloat(opening.openingStock || 0);
+    const openingVal = parseFloat(opening.openingvalue || 0);
+
+    const closingQty = parseFloat(opening.closingStock || 0);
+    const closingVal = parseFloat(opening.closingvalue || 0);
+
+    const netQty = inQty - outQty;
+    const netVal = inVal - outVal;
+
+    const days = Math.max(1, vouchers.length);
+    const velocity = Math.min(100, Math.abs(netQty) / days * 10);
+
+    // Inject values
+    setText('smOpeningQty', openingQty);
+    setText('smOpeningVal', displayAmount(openingVal));
+
+    setText('smInQty', '+' + inQty);
+    setText('smInVal', displayAmount(inVal));
+
+    setText('smOutQty', '-' + outQty);
+    setText('smOutVal', displayAmount(outVal));
+
+    setText('smClosingQty', closingQty);
+    setText('smClosingVal', displayAmount(closingVal));
+
+    setText('smNetQty', netQty > 0 ? '+' + netQty : netQty);
+    setText('smNetVal', displayAmount(netVal));
+
+    setText('smVelocity', velocity.toFixed(1) + '%');
+    document.getElementById('smVelocityBar').style.width = velocity + '%';
+    document.getElementById('smVelocityBar').className =
+        'progress-bar ' + (
+            velocity > 60 ? 'bg-success' :
+            velocity > 30 ? 'bg-warning' : 'bg-danger'
+        );
+}
+
+function setText(id, val) {
+    document.getElementById(id).innerText = val ?? '—';
 }
 
 // ------------------------------
@@ -367,8 +424,8 @@ function changeTitle(data){
 // Navigation
 // ------------------------------
 function goBack(){
-    document.querySelector("#table-loader").style.display = "block";
-
+    document.querySelector("#table-loader").classList.remove('d-none');
+    document.getElementById("stockMovementWidget").classList.add("d-none")
     const tags = document.querySelector("#table-title").dataset;
 
     if (tags.back === "home" && tags.path !== "home"){
@@ -377,10 +434,11 @@ function goBack(){
         loadStockByGroup(tags.master);
     }
 
-    document.querySelector("#table-loader").style.display = "none";
+    document.querySelector("#table-loader").classList.add('d-none');
 }
 
 function goHome(){
+    document.getElementById("stockMovementWidget").classList.add("d-none")
     loadHome();
 }
 

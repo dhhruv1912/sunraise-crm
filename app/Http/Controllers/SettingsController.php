@@ -57,7 +57,7 @@ class SettingsController extends Controller
      * Create or update setting metadata (label, type, options, attr).
      * URL: POST /settings/save
      */
-    public function save(Request $request)
+    public function save2(Request $request)
     {
         $isNew = empty($request->id);
 
@@ -226,4 +226,108 @@ class SettingsController extends Controller
 
         return response()->json(['status' => true, 'message' => 'Imported successfully']);
     }
+
+    public function index()
+    {
+        $groups = [
+            'genaral' => "General",
+            'quote' => "Quote",
+            'projects' => "Projects",
+            'tally' => "Tally",
+            'user' => "User",
+            'marketing' => "Marketing",
+            'billing' => "Billing",
+        ];
+        return view('page.settings.index', compact('groups'));
+    }
+
+    public function ajaxList(Request $request,$group = null)
+    {
+        $prefix = $group; // app_, project_, user_1_
+        $settings = Settings::query()
+            ->when($prefix, fn ($q) =>
+                $q->where('name', 'like', $prefix . '%')
+            )
+            ->orderBy('name')
+            ->get();
+
+        return view('page.settings.list', compact('settings', 'prefix'));
+    }
+    public function module(Request $request,$module)
+    {
+        $prefix = $module; // app_, project_, user_1_
+        $settings = Settings::query()
+            ->when($prefix, fn ($q) =>
+                $q->where('name', 'like', $prefix . '%')
+            )
+            ->orderBy('name')
+            ->get();
+
+        return view('page.settings.group', compact('settings', 'prefix'));
+    }
+
+    public function save(Request $request)
+    {
+        foreach ($request->except('_token') as $key => $value) {
+
+            $setting = Settings::where('name', $key)->first();
+            if (!$setting) continue;
+
+            if ($setting->type == 8) { // JSON
+                $value = json_encode(json_decode($value, true));
+            }
+
+            if ($setting->type == 6 && $request->hasFile($key)) {
+                $value = $request->file($key)->store('settings');
+            }
+
+            $setting->value = is_array($value)
+                ? json_encode($value)
+                : $value;
+
+            $setting->save();
+        }
+
+        return response()->json(['message' => 'Settings saved']);
+    }
+public function store(Request $request)
+{
+    Settings::create($request->only([
+        'name','label','type','default','option','attr'
+    ]));
+
+    return response()->json(['ok'=>true]);
+}
+
+public function update(Request $request, Settings $setting)
+{
+    $request->option = json_encode($request->options);
+    // dump($request->all());
+    $setting->update($request->only([
+        'label','type','default','option','attr'
+    ]));
+
+    return response()->json(['ok'=>true]);
+}
+
+public function destroy(Settings $setting)
+{
+    $setting->delete();
+    return response()->json(['ok'=>true]);
+}
+
+public function resetToDefault()
+{
+    $user = auth()->user();
+    $prefix = "user_{$user->id}_";
+
+    Setting::where('name', 'like', $prefix . '%')
+        ->update([
+            'value' => DB::raw('`default`')
+        ]);
+
+    return response()->json(['ok' => true]);
+}
+
+
 }

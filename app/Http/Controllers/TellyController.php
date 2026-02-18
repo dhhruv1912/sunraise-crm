@@ -49,8 +49,24 @@ class TellyController extends Controller
         return view('page.tally.dashboard',compact('request'));
     }
 
+    public function formatTallyBalance($amount)
+    {
+        $amount = (float) $amount;
+
+        if ($amount == 0) {
+            return '0.00';
+        }
+
+        if ($amount > 0) {
+            return number_format($amount, 2) . ' Dr';
+        }
+
+        return number_format(abs($amount), 2) . ' Cr';
+    }
+
     public function sendRequest($xml)
     {
+        // dd($xml);
         $response = Http::withHeaders([
             'Content-Type' => 'text/xml',
             'ngrok-skip-browser-warning' => 'true',
@@ -203,12 +219,43 @@ class TellyController extends Controller
         $requestXML = view('page.tally.request.ledger',compact('meta'))->render();
         $data = $this->sendRequest($requestXML);
         $voucher_type_mapping = json_decode(Settings::getValue('tally_voucher_type_mapping'),true);
+
         return response()->json([
             'data' => simplexml_load_string($data),
             'voucher_type_mapping' => $voucher_type_mapping,
             'status' => 200,
         ],200);
     }
+
+    public function single_cashflow(Request $request){
+        $meta = [];
+        $meta['CompanyName'] = $this->CompanyName;
+        $meta['YearStart'] = $this->YearStart;
+        $meta['YearEnd'] = $this->YearEnd;
+        $ledger_name = urldecode($request->get('ledger',''));
+
+        $requestXML = view('page.tally.request.cashflow-single-ledger',compact('meta','ledger_name'))->render();
+        $data = $this->sendRequest($requestXML);
+        return response()->json([
+            'data' => simplexml_load_string($data),
+            'status' => 200,
+        ],200);
+    }
+    public function cashflow(Request $request){
+        $meta = [];
+        $meta['CompanyName'] = $this->CompanyName;
+        $meta['YearStart'] = $this->YearStart;
+        $meta['YearEnd'] = $this->YearEnd;
+        $ledger_name = urldecode($request->get('ledger',''));
+
+        $requestXML = view('page.tally.request.ledger_voucher_monthly',compact('meta','ledger_name'))->render();
+        $data = $this->sendRequest($requestXML);
+        return response()->json([
+            'data' => simplexml_load_string($data),
+            'status' => 200,
+        ],200);
+    }
+
     public function loadStocks(Request $request){
         $meta = [];
         $meta['CompanyName'] = $this->CompanyName;
@@ -227,10 +274,33 @@ class TellyController extends Controller
         $meta['YearStart'] = $this->YearStart;
         $meta['YearEnd'] = $this->YearEnd;
         $requestXML = view('page.tally.request.test',compact('meta'))->render();
-        // dd($requestXML);
         $data = $this->sendRequest($requestXML);
         return response()->json([
             'data' => simplexml_load_string($data),
+            'status' => 200,
+        ],200);
+    }
+    public function balance_sheet(Request $request){
+        $meta = [];
+        $meta['CompanyName'] = $this->CompanyName;
+        $meta['YearStart'] = $this->YearStart;
+        $meta['YearEnd'] = $this->YearEnd;
+        $requestXML = view('page.tally.request.balance_sheet',compact('meta'))->render();
+        $data = $this->sendRequest($requestXML);
+        return response()->json([
+            'data' => $this->parseBalanceSheet(simplexml_load_string($data)),
+            'status' => 200,
+        ],200);
+    }
+    public function trial_balance(Request $request){
+        $meta = [];
+        $meta['CompanyName'] = $this->CompanyName;
+        $meta['YearStart'] = $this->YearStart;
+        $meta['YearEnd'] = $this->YearEnd;
+        $requestXML = view('page.tally.request.trial-balance',compact('meta'))->render();
+        $data = $this->sendRequest($requestXML);
+        return response()->json([
+            'data' => (simplexml_load_string($data)),
             'status' => 200,
         ],200);
     }
@@ -238,6 +308,49 @@ class TellyController extends Controller
     public function xmlToArray($xml) {
         return json_decode(json_encode($xml), true);
     }
+
+    function parseBalanceSheet($xml)
+    {
+        $result = [];
+        $currentGroupIndex = -1;
+        try {
+            $nodes = $xml->children();
+        } catch (\Throwable $th) {
+            return $result;
+        }
+
+        for ($i = 0; $i < count($nodes); $i += 2) {
+
+            $nameNode = $nodes[$i];
+            $amtNode  = $nodes[$i + 1];
+
+            $name = (string) $nameNode->DSPACCNAME->DSPDISPNAME;
+            $mainAmt = trim((string) $amtNode->BSMAINAMT);
+            $subAmt  = trim((string) $amtNode->BSSUBAMT);
+
+            // GROUP
+            if ($mainAmt !== "") {
+                $result[] = [
+                    'name' => $name,
+                    'amount' => (float) $mainAmt,
+                    'children' => []
+                ];
+
+                $currentGroupIndex = count($result) - 1;
+            }
+            // CHILD
+            else if ($currentGroupIndex >= 0) {
+                $result[$currentGroupIndex]['children'][] = [
+                    'name' => $name,
+                    'amount' => (float) $subAmt
+                ];
+            }
+        }
+
+        return $result;
+    }
+
+
 }
 
 // http://127.0.0.1:5500/SRI/tally/add

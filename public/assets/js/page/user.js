@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const newOnlyWrapper = document.getElementById("new-only-fields");
 
     // List / pagination selectors
-    const tbodySel = "#user-body";
+    const tbodySel = "#srUsersTable";
     const paginationContainer = "#user-pagination";
     const paginationUL = "#pagination-ul";
 
@@ -130,8 +130,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- Render table ---
     function renderStaffTable(list = []) {
-        console.log(list);
-        
         const tbody = document.querySelector(tbodySel);
         if (!tbody) return;
 
@@ -142,18 +140,59 @@ document.addEventListener("DOMContentLoaded", () => {
 
         tbody.innerHTML = list.data.map(u => `
             <tr>
-                <td>${u.fname} ${u.lname}</td>
+                <td>
+                    <div class="sr-users__user">
+                        <div class="sr-users__avatar">
+                            <img src="https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=${u.fname}+${u.lname}"
+                                 alt="Avatar"
+                                 class="w-px-40 h-auto rounded-circle">    
+                        </div>
+                        <div>
+                            <div class="sr-users__name">
+                                ${u.fname} ${u.lname}
+                            </div>
+                            <small class="text-muted">
+                                ID: ${u.id}
+                            </small>
+                        </div>
+                    </div>
+                </td>
+
+                <td>${u.email}</td>
+                <td>${u.mobile}</td>
+
                 <td>
                     <span class="${getRoleBadge(u.role)}">
                         ${getRoleName(u.role)}
                     </span>
                 </td>
-                <td><span class="badge ${u.status ? 'bg-success' : 'bg-danger'}">${u.status ? 'Active' : 'Inactive'}</span></td>
-                <td>${u.mobile ?? '-'}</td>
-                <td>${u.email ?? '-'}</td>
+
                 <td>
-                    <a class="btn btn-sm btn-primary edit-employee" href="/user/${u.id}/edit">Edit</a>
-                    <button class="btn btn-sm btn-danger delete-employee" data-id="${u.id}">Delete</button>
+                    <span class="badge ${u.status ? 'bg-success' : 'bg-danger'}">${u.status ? 'Active' : 'Inactive'}</span>
+                </td>
+
+                <td class="text-end">
+                    <div class="dropdown">
+                        <button
+                            class="btn btn-sm btn-light"
+                            data-bs-toggle="dropdown"
+                        >
+                            <i class="mdi mdi-dots-vertical"></i>
+                        </button>
+
+                        <div class="dropdown-menu dropdown-menu-end">
+                                <a class="dropdown-item"
+                                    href="/user/${u.id}/edit">
+                                    View
+                                </a>
+                                <a class="dropdown-item"
+                                    href="/user/${u.id}/edit">
+                                    Edit
+                                </a>
+                                <a href="javascript:void(0)" class="dropdown-item" data-id="${u.id}">Delete</a>
+
+                        </div>
+                    </div>
                 </td>
             </tr>
             `).join('');
@@ -213,4 +252,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // initial
     loadStaff();
+});
+document.getElementById('srUserSearch')?.addEventListener('input', function () {
+    const value = this.value.toLowerCase();
+    document.querySelectorAll('#srUsersTable tr').forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(value)
+            ? ''
+            : 'none';
+    });
 });

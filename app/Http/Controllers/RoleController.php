@@ -2,85 +2,118 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use App\Models\User;
 
 class RoleController extends Controller
 {
-    // LIST ROLES
     public function index()
     {
-        $roles = Role::with('permissions')->orderBy('id')->get();
-        return view('page.roles.index', compact('roles'));
+        return view('page.roles.index');
     }
 
-    // CREATE FORM
-    public function create()
+    public function ajaxList()
     {
-        $permissions = Permission::get();
-        return view('page.roles.create', compact('permissions'));
+        return response()->json(
+            Role::withCount('users')
+                ->orderBy('name')
+                ->get()
+        );
     }
 
-    // STORE NEW ROLE
+    public function ajaxWidgets()
+    {
+        return view('page.roles.widgets', [
+            'total'       => Role::count(),
+            'permissions' => Permission::count(),
+            'users'       => User::count(),
+        ]);
+    }
+
     public function store(Request $request)
     {
-        $rules = ['name' => 'required|unique:roles,name'];
-        $validator = Validator::make($request->all(), $rules);
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('roles', 'name'),
+            ],
+        ]);
 
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
-        }
+        Role::create([
+            'name'       => strtolower($validated['name']),
+            'guard_name' => 'web',
+        ]);
 
-        $role = Role::create(['name' => $request->name]);
-
-        if ($request->permissions) {
-            $role->syncPermissions($request->permissions);
-        }
-
-        return redirect()
-            ->route('roles.index')
-            ->with('success', 'Role created successfully!');
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Role created successfully',
+        ]);
     }
 
-    // EDIT FORM
-    public function edit(Role $role)
-    {
-        $permissions = Permission::get();
-        $rolePermissions = $role->permissions->pluck('name')->toArray();
-
-        return view('page.roles.edit', compact('role', 'permissions', 'rolePermissions'));
-    }
-
-    // UPDATE ROLE
-    public function update(Request $request, Role $role)
-    {
-        $rules = ['name' => 'required|unique:roles,name,' . $role->id];
-        $validator = Validator::make($request->all(), $rules);
-
-        if ($validator->fails()) return back()->withErrors($validator)->withInput();
-
-        $role->update(['name' => $request->name]);
-
-        if ($request->permissions) {
-            $role->syncPermissions($request->permissions);
-        } else {
-            $role->syncPermissions([]);
-        }
-
-        return redirect()
-            ->route('roles.index')
-            ->with('success', 'Role updated successfully!');
-    }
-
-    // DELETE ROLE
     public function destroy(Role $role)
     {
+        if (in_array($role->name, ['admin', 'super-admin'])) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'This role cannot be deleted',
+            ], 403);
+        }
+
+        $role->users()->detach();
         $role->delete();
-        return redirect()
-            ->route('roles.index')
-            ->with('success', 'Role deleted successfully!');
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Role deleted successfully',
+        ]);
+    }
+
+    /* ================= ROLE → PERMISSIONS PAGE ================= */
+    public function permissions(Role $role)
+    {
+        $permissions = Permission::orderBy('name')->get()
+            ->groupBy(fn ($p) => explode('.', $p->name)[0]);
+
+        $assigned = $role->permissions->pluck('name')->toArray();
+
+        return view('page.roles.permissions', [
+            'role'        => $role,
+            'permissions' => $permissions,
+            'assigned'    => $assigned,
+            'total'       => Permission::count(),
+            'assignedCnt' => count($assigned),
+        ]);
+    }
+
+    public function permissionWidgets(Role $role)
+    {
+        $total = Permission::count();
+        $assigned = $role->permissions()->count();
+
+        return view('page.roles.permissions-widgets', [
+            'total'       => $total,
+            'assignedCnt' => $assigned,
+            'unassigned'  => $total - $assigned,
+        ]);
+    }
+
+    /* ================= SAVE ROLE PERMISSIONS ================= */
+    public function syncPermissions(Request $request, Role $role)
+    {
+        $data = $request->validate([
+            'permissions' => 'array'
+        ]);
+
+        $role->syncPermissions($data['permissions'] ?? []);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Permissions updated successfully'
+        ]);
     }
 }

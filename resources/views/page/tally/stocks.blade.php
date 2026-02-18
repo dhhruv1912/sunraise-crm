@@ -1,120 +1,168 @@
 @extends('temp.common')
-@section('title')
-    Tally
+
+@section('title', 'Tally · Stocks')
+@section('head')
+    <style>
+        /* ================= TALLY TABLE ENHANCEMENTS ================= */
+        #tally-datatable thead th {
+            position: sticky;
+            z-index: 5;
+            background: var(--bs-secondary-bg, #e9ecef);
+        }
+
+        /* First header row */
+        #tally-datatable thead tr:nth-child(1) th {
+            top: 0;
+        }
+
+        /* Second header row (voucher view) */
+        #tally-datatable thead tr:nth-child(2) th {
+            top: 38px;
+        }
+
+        /* Disable unwanted datatable UI if injected */
+        .dt-layout-start,
+        .dt-layout-end,
+        .dt-search {
+            display: none !important;
+        }
+
+        .dt-layout-row {
+            margin: 0 !important;
+        }
+    </style>
 @endsection
 @section('content')
-<style>
-    .loader-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(255, 255, 255, 0.5); /* Half opacity */
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10;
-    }
+    <div class="container-fluid">
+        <div class="crm-page">
 
-    .spinner {
-        border: 4px solid rgba(0, 0, 0, 0.1);
-        border-left-color: #3498db;
-        border-radius: 50%;
-        width: 30px;
-        height: 30px;
-        animation: spin 1s linear infinite;
-    }
+            {{-- ================= HEADER ================= --}}
+            <div class="d-flex justify-content-between align-items-start mb-2">
 
-    @keyframes spin {
-        to {
-            transform: rotate(360deg);
-        }
-    }
-    #tally-datatable thead th {
-        position: sticky;
-        top: 0;
-    }
-    .dt-layout-start, .dt-layout-end, .dt-search{
-        display: none !important;
-    }
-    .dt-layout-row{
-        margin: 0 !important;
-    }
+                <div>
+                    <h4 id="table-title" data-path="home" data-back="home" class="mb-0">
+                        Stock
+                    </h4>
 
-    #tally-datatable thead th {
-    position: sticky;
-    z-index: 10;
-    background: #e9ecef; /* Bootstrap's .table-secondary */
-}
+                    <nav aria-label="breadcrumb" class="mt-1" id="tally-breadcrumb">
+                        <ol class="breadcrumb breadcrumb-style1 mb-0">
+                            {{-- JS injects breadcrumb --}}
+                        </ol>
+                    </nav>
+                </div>
 
-/* First header row (Date / Type / etc.) */
-#tally-datatable thead tr:nth-child(1) th {
-    top: 0;
-}
-
-/* Second header row (QTY / Amount below main headers) */
-#tally-datatable thead tr:nth-child(2) th {
-    top: 37px; /* Adjust depending on your header row height */
-}
-</style>
-        <!-- Striped Rows -->
-        <div class="card">
-            <div class="card-header row">
-                <h5 id="table-title" data-path="home" data-back="home" class="col">Stock</h5>
-                <nav aria-label="breadcrumb" id="tally-breadcrumb">
-                    <ol class="breadcrumb breadcrumb-style1">
-                    </ol>
-                  </nav>
-                <div id="tally_navigation">
-                    <button id="home" onclick="goHome()" class="rounded-circle btn btn-outline-primary waves-effect px-2">
-                        <span class="mdi mdi-home"></span>
+                {{-- ACTIONS --}}
+                <div class="d-flex gap-2" id="tally_navigation">
+                    <button id="home" onclick="goHome()" class="btn btn-sm btn-outline-primary rounded-circle"
+                        title="Home">
+                        <i class="mdi mdi-home"></i>
                     </button>
-                    <button id="back" onclick="goBack()" class="rounded-circle btn btn-outline-primary waves-effect px-2">
-                        <span class="mdi mdi-arrow-left"></span>
+
+                    <button id="back" onclick="goBack()" class="btn btn-sm btn-outline-primary rounded-circle"
+                        title="Back">
+                        <i class="mdi mdi-arrow-left"></i>
+                    </button>
+
+                    <button onclick="reload()" class="btn btn-sm btn-outline-secondary rounded-circle" title="Reload">
+                        <i class="mdi mdi-reload"></i>
                     </button>
                 </div>
+
             </div>
-            <div class="table-responsive text-nowrap m-3">
-                <div class="table-responsive text-nowrap" style="min-height: 300px;max-height: 55vh;">
-                    <table class="table table-striped table-hover table-datatable position-relative" id="tally-datatable">
+            {{-- ================= STOCK MOVEMENT SUMMARY ================= --}}
+            <div id="stockMovementWidget" class="crm-section mt-2 d-none">
+
+                <div class="row g-3">
+
+                    {{-- Opening --}}
+                    <div class="col-md-2">
+                        <div class="crm-stat">
+                            <div class="text-muted small">Opening</div>
+                            <div class="fw-bold" id="smOpeningQty">—</div>
+                            <div class="small text-muted" id="smOpeningVal"></div>
+                        </div>
+                    </div>
+
+                    {{-- Inward --}}
+                    <div class="col-md-2">
+                        <div class="crm-stat">
+                            <div class="text-muted small">Inward</div>
+                            <div class="fw-bold text-success" id="smInQty">—</div>
+                            <div class="small text-muted" id="smInVal"></div>
+                        </div>
+                    </div>
+
+                    {{-- Outward --}}
+                    <div class="col-md-2">
+                        <div class="crm-stat">
+                            <div class="text-muted small">Outward</div>
+                            <div class="fw-bold text-danger" id="smOutQty">—</div>
+                            <div class="small text-muted" id="smOutVal"></div>
+                        </div>
+                    </div>
+
+                    {{-- Closing --}}
+                    <div class="col-md-2">
+                        <div class="crm-stat">
+                            <div class="text-muted small">Closing</div>
+                            <div class="fw-bold" id="smClosingQty">—</div>
+                            <div class="small text-muted" id="smClosingVal"></div>
+                        </div>
+                    </div>
+
+                    {{-- Net Movement --}}
+                    <div class="col-md-2">
+                        <div class="crm-stat">
+                            <div class="text-muted small">Net Movement</div>
+                            <div class="fw-bold" id="smNetQty">—</div>
+                            <div class="small text-muted" id="smNetVal"></div>
+                        </div>
+                    </div>
+
+                    {{-- Velocity --}}
+                    <div class="col-md-2">
+                        <div class="crm-stat">
+                            <div class="text-muted small">Velocity</div>
+                            <div class="fw-bold" id="smVelocity">—</div>
+                            <div class="progress mt-1" style="height:6px;">
+                                <div class="progress-bar" id="smVelocityBar"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            {{-- ================= TABLE SECTION ================= --}}
+            <div class="crm-section p-0 mt-2">
+
+                <div class="crm-table-wrapper position-relative">
+
+                    <table id="tally-datatable" class="table crm-table table-striped table-hover mb-0">
                         <thead></thead>
                         <tbody></tbody>
-                        <div id="table-loader" class="loader-overlay" style="display:none;">
-                            <div class="spinner">
-                            </div>
-                            Loading...
-                        </div>
                     </table>
-                </div>
-            </div>
-        </div>
-@endsection
-@section('headbar')
-    {{-- <div class="input-group input-group-merge mx-2" style="max-width: 200px">
-        <span class="border-0 input-group-text rounded-end rounded-pill text-primary">Start Date :</span>
-        <input type="date" class="border-0 form-control rounded-pill rounded-start text-primary" id="start-date">
-    </div>
-    <div class="input-group input-group-merge mx-2" style="max-width: 200px">
-        <span class="border-0 input-group-text rounded-end rounded-pill text-primary" id="">End Date :</span>
-        <input type="date" class="border-0 form-control rounded-pill rounded-start text-primary" id="end-date">
-    </div>
-    <button id="home" onclick="goHome()" class="rounded-circle btn btn-outline-primary waves-effect px-2">
-                        <span class="mdi mdi-home"></span>
-                    </button>
-                    <button id="back" onclick="goBack()" class="rounded-circle btn btn-outline-primary waves-effect px-2">
-                        <span class="mdi mdi-arrow-left"></span>
-                    </button> --}}
-    {{-- <button id="back" onclick="reload()" class="rounded-circle btn btn-outline-primary waves-effect px-2 py-1" style="max-width: 200px">
-        <span class="mdi mdi-arrow-left"></span>
-    </button> --}}
-@endsection
-@section('head')
 
+                    {{-- LOADER --}}
+                    <div id="table-loader" class="crm-loader-overlay d-none">
+                        <div class="crm-spinner"></div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            {{-- ================= FOOTER INFO ================= --}}
+            <div class="text-muted small mt-2">
+                <i class="mdi mdi-information-outline me-1"></i>
+                Double-click rows to drill down · Press <b>ESC</b> to go back
+            </div>
+
+        </div>
+    </div>
+@endsection
+
+@section('scripts')
     <script src="{{ asset('assets/js/page/stocks.js') }}"></script>
 @endsection
-{{-- @section('scripts')
-<script>
-
-</script>
-@endsection --}}

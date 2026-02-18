@@ -1,4 +1,4 @@
-body {
+/* body {
   background: #f4f5fa;
 }
 
@@ -6,7 +6,7 @@ body {
   background: #f4f5fa !important;
 }
 
-.text-primary {
+ .text-primary {
   color: #9055fd !important;
 }
 
@@ -224,7 +224,7 @@ button.list-group-item-primary.active {
 
 .nav-pills .nav-link.active, .nav-pills .nav-link.active:hover, .nav-pills .nav-link.active:focus {
   background-color: #8a8d93;
-  /* background-color: #9055fd; */
+  background-color: #9055fd;
   color: #fff;
 }
 
@@ -667,4 +667,274 @@ a:hover {
 }
 .bg-footer-theme hr {
   border-color: rgba(84, 79, 90, 0.0769076471);
+} */
+
+/* =========================================================
+   THEME DEFAULT — BRAND-AGNOSTIC (BOOTSTRAP DRIVEN)
+   DO NOT USE HEX BRAND COLORS IN THIS FILE
+========================================================= */
+
+/* Body */
+body {
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+}
+
+.bg-body {
+  background: var(--bs-body-bg) !important;
+}
+
+/* =========================================================
+   TEXT & LINKS
+========================================================= */
+
+.text-primary {
+  color: var(--bs-primary) !important;
+}
+
+.text-body[href]:hover {
+  color: var(--bs-link-hover-color) !important;
+}
+
+a {
+  color: var(--bs-link-color);
+}
+
+a:hover {
+  color: var(--bs-link-hover-color);
+}
+
+/* =========================================================
+   BACKGROUNDS
+========================================================= */
+
+.bg-primary {
+  background-color: var(--bs-primary) !important;
+}
+
+.bg-secondary {
+  background-color: var(--bs-secondary) !important;
+}
+
+/* =========================================================
+   PAGINATION
+========================================================= */
+
+.page-item.active .page-link,
+.page-item.active .page-link:hover,
+.page-item.active .page-link:focus {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+  color: #fff;
+}
+
+.pagination-outline-primary .page-item.active .page-link {
+  color: var(--bs-primary);
+  background-color: var(--bs-primary-bg-subtle);
+  border-color: var(--bs-primary-border-subtle);
+}
+
+/* =========================================================
+   PROGRESS
+========================================================= */
+
+.progress-bar {
+  background-color: var(--bs-primary);
+}
+
+/* =========================================================
+   LIST GROUP
+========================================================= */
+
+.list-group-item-primary {
+  background-color: var(--bs-primary-bg-subtle);
+  border-color: var(--bs-primary-border-subtle);
+  color: var(--bs-primary-text-emphasis);
+}
+
+.list-group-item.active {
+  background-color: var(--bs-primary-bg-subtle);
+  color: var(--bs-emphasis-color);
+}
+
+/* =========================================================
+   ALERTS
+========================================================= */
+
+.alert-primary {
+  background-color: var(--bs-primary-bg-subtle);
+  border-color: var(--bs-primary-border-subtle);
+  color: var(--bs-primary-text-emphasis);
+}
+
+.alert-primary .alert-link {
+  color: var(--bs-primary);
+}
+
+/* =========================================================
+   TABLES
+========================================================= */
+
+.table-primary {
+  --bs-table-bg: var(--bs-primary-bg-subtle);
+  --bs-table-striped-bg: rgba(var(--bs-primary-rgb), .08);
+  --bs-table-hover-bg: rgba(var(--bs-primary-rgb), .12);
+  --bs-table-border-color: var(--bs-primary-border-subtle);
+}
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+.btn-primary {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+  color: #fff;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+  background-color: rgba(var(--bs-primary-rgb), .9);
+  border-color: rgba(var(--bs-primary-rgb), .9);
+}
+
+.btn-outline-primary {
+  color: var(--bs-primary);
+  border-color: var(--bs-primary-border-subtle);
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--bs-primary-bg-subtle);
+}
+
+/* =========================================================
+   DROPDOWNS
+========================================================= */
+
+.dropdown-item.active,
+.dropdown-item:active {
+  background-color: var(--bs-primary-bg-subtle);
+  color: var(--bs-primary);
+}
+
+/* =========================================================
+   NAVS & TABS
+========================================================= */
+
+.nav-pills .nav-link.active {
+  background-color: var(--bs-primary);
+  color: #fff;
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+
+/* =========================================================
+   FORMS
+========================================================= */
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 .15rem rgba(var(--bs-primary-rgb), .25);
+}
+
+.form-check-input:checked {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+
+/* =========================================================
+   RANGE
+========================================================= */
+
+.form-range::-webkit-slider-thumb {
+  background-color: var(--bs-primary);
+}
+
+.form-range::-moz-range-thumb {
+  background-color: var(--bs-primary);
+}
+
+/* =========================================================
+   DIVIDERS
+========================================================= */
+
+.divider.divider-primary .divider-text::before,
+.divider.divider-primary .divider-text::after {
+  border-color: var(--bs-primary);
+}
+
+/* =========================================================
+   NAVBAR
+========================================================= */
+
+.navbar.bg-primary {
+  background-color: var(--bs-primary) !important;
+  color: #fff;
+}
+
+.navbar.bg-primary .nav-link {
+  color: rgba(255,255,255,.85);
+}
+
+.navbar.bg-primary .nav-link:hover {
+  color: #fff;
+}
+
+/* =========================================================
+   MENU (SIDEBAR)
+========================================================= */
+
+.menu.bg-primary {
+  background-color: var(--bs-primary) !important;
+}
+
+.menu.bg-primary .menu-link {
+  color: rgba(255,255,255,.85);
+}
+
+.menu.bg-primary .menu-item.active > .menu-link {
+  background: linear-gradient(
+    270deg,
+    rgba(var(--bs-primary-rgb), .95),
+    rgba(var(--bs-primary-rgb), .7)
+  );
+  color: #fff;
+}
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.footer.bg-primary {
+  background-color: var(--bs-primary);
+  color: rgba(255,255,255,.85);
+}
+
+.footer.bg-primary .footer-link {
+  color: rgba(255,255,255,.85);
+}
+
+.footer.bg-primary .footer-link:hover {
+  color: #fff;
+}
+
+/* =========================================================
+   SVG / ICONS
+========================================================= */
+
+.fill-primary {
+  fill: var(--bs-primary);
+}
+
+/* =========================================================
+   BORDERS
+========================================================= */
+
+.border-primary {
+  border-color: var(--bs-primary) !important;
 }

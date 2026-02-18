@@ -67,14 +67,12 @@
                             </div>
                         @endif
 
-                        {{-- Error Alert (first error only) --}}
                         @if ($errors->any())
                             <div class="mb-4 p-3 bg-red-100 text-red-800 text-sm rounded">
                                 {{ $errors->first() }}
                             </div>
                         @endif
 
-                        {{-- MAIN CONTENT --}}
                         <div>
                             @yield('content')
                         </div>
@@ -95,7 +93,6 @@
             </div>
         </div>
 
-        {{-- Footer --}}
 
     </div>
     <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>

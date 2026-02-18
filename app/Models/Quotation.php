@@ -32,6 +32,11 @@ class Quotation extends Model
         'sent_at' => 'datetime',
     ];
 
+    public static function generateNumber()
+    {
+        $last = self::orderBy('id', 'desc')->value('id') ?? 0;
+        return 'QT-' . str_pad($last + 1, 5, '0', STR_PAD_LEFT);
+    }
     // /**
     //  * Quotation belongs to a Quote Request
     //  */

@@ -6,9 +6,12 @@ use App\Models\Customer;
 use App\Models\CustomerActivity;
 use App\Models\CustomerNote;
 use App\Models\Document;
+use App\Models\Invoice;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 
 class CustomerController extends Controller
@@ -18,250 +21,181 @@ class CustomerController extends Controller
      --------------------------------------------------------- */
     public function index()
     {
-        return view('page.customers.list');
+        return view('page.customers.index');
     }
 
-    /* ---------------------------------------------------------
-     | AJAX LIST (Filters + Pagination)
-     --------------------------------------------------------- */
-    public function ajax(Request $request)
+    public function ajaxList(Request $request)
     {
-        $perPage = (int) $request->get('per_page', 20);
+        $page    = (int) $request->get('page', 1);
+        $perPage = (int) $request->get('per_page', 10);
 
         $q = Customer::query();
 
-        if ($search = trim($request->search)) {
-            $q->where(function ($x) use ($search) {
-                $x->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('mobile', 'like', "%{$search}%")
-                  ->orWhere('alternate_mobile', 'like', "%{$search}%");
+        if ($request->search) {
+            $s = $request->search;
+            $q->where(function ($qq) use ($s) {
+                $qq->where('name', 'like', "%{$s}%")
+                    ->orWhere('mobile', 'like', "%{$s}%")
+                    ->orWhere('email', 'like', "%{$s}%");
             });
         }
 
-        if ($request->filled('filter_from')) {
-            $q->whereDate('created_at', '>=', $request->filter_from);
-        }
-        if ($request->filled('filter_to')) {
-            $q->whereDate('created_at', '<=', $request->filter_to);
-        }
+        $total = (clone $q)->count();
 
-        $data = $q->orderBy('id', 'desc')->paginate($perPage);
+        $rows = $q
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
+            ->get()
+            ->map(function ($c) {
 
-        return response()->json($data);
+                $photo = $c->documents
+                    ->firstWhere('type', 'passport_size_photo');
+
+                return [
+                    'id'     => $c->id,
+                    'name'   => $c->name,
+                    'mobile' => $c->mobile,
+                    'email'  => $c->email,
+
+                    'avatar' => $photo
+                        ? Storage::disk('public')->url($photo->file_path)
+                        : null,
+                ];
+            });
+
+        return response()->json([
+            'data' => $rows,
+            'meta' => [
+                'current_page' => $page,
+                'per_page'     => $perPage,
+                'total'        => $total,
+                'last_page'    => (int) ceil($total / $perPage),
+            ],
+            'canEdit' => Gate::allows('project.customer.edit')
+        ]);
     }
 
-    /* ---------------------------------------------------------
-     | CREATE FORM
-     --------------------------------------------------------- */
-    public function create()
+    public function ajaxWidgets()
     {
-        return view('page.customers.form');
+        return view('page.customers.widgets', [
+            'total'      => Customer::count(),
+            'projects'   => Project::count(),
+            'active'     => Project::where('status', '!=', 'complete')->count(),
+            'outstanding' => Invoice::sum('balance'),
+            'totalInvoiced' => Invoice::sum('total'),
+        ]);
     }
 
-    /* ---------------------------------------------------------
-     | STORE
-     --------------------------------------------------------- */
+    public function ajaxActivities(Customer $customer)
+    {
+        $activities = $customer->activities()
+            ->latest()
+            ->limit(20)
+            ->get();
+
+        return view(
+            'page.customers.partials.activities',
+            compact('activities')
+        );
+    }
+    public function ajaxDocuments(Customer $customer)
+    {
+        $documents = Document::where(function ($q) use ($customer) {
+            $q->where('entity_type', Customer::class)
+                ->where('entity_id', $customer->id);
+        })
+            ->latest()
+            ->get();
+
+        return view(
+            'page.customers.partials.documents',
+            compact('documents')
+        );
+    }
+    public function edit(Customer $customer)
+    {
+        $docs = Document::where('entity_type', Customer::class)
+            ->where('entity_id', $customer->id)
+            ->get()
+            ->keyBy('type');
+        return view('page.customers.edit', compact('customer','docs'));
+    }
     public function store(Request $request)
     {
-        $data = $this->validatePayload($request);
+        $data = $request->validate([
+            'name'               => 'required|string|max:255',
+            'mobile'             => 'required|string|max:20|unique:customers,mobile',
+            'email'              => 'nullable|email|unique:customers,email',
+            'alternate_mobile'   => 'nullable|string|max:20',
+            'address'            => 'nullable|string',
+
+            // identity
+            'aadhar_card_number' => 'nullable|string|max:255',
+            'pan_card_number'    => 'nullable|string|max:255',
+
+            // banking
+            'bank_name'          => 'nullable|string|max:255',
+            'ifsc_code'          => 'nullable|string|max:255',
+            'ac_holder_name'     => 'nullable|string|max:255',
+            'bank_account_number' => 'nullable|string|max:255',
+            'branch_name'        => 'nullable|string|max:255',
+        ]);
 
         $customer = Customer::create($data);
 
-        $this->logActivity($customer->id, 'created', 'Customer created');
-
-        return redirect()->route('customers.index')
-            ->with('success', 'Customer created successfully');
-    }
-
-    /* ---------------------------------------------------------
-     | EDIT FORM
-     --------------------------------------------------------- */
-    public function edit($id)
-    {
-        $customer = Customer::findOrFail($id);
-        return view('page.customers.form', compact('customer'));
-    }
-
-    /* ---------------------------------------------------------
-     | UPDATE
-     --------------------------------------------------------- */
-    public function update(Request $request, $id)
-    {
-        $data = $this->validatePayload($request);
-        $customer = Customer::findOrFail($id);
-        $customer->fill($data);
-
-        foreach ($request->allFiles() as $key => $file) {
-            if (!($file instanceof \Illuminate\Http\UploadedFile)) {
-                continue;
-            }
-            $existing_doc = Document::where('type',$key . '-image')->where('project_id',$data['project_id'])->first();
-            if($existing_doc && $existing_doc->path && Storage::disk('public')->exists($existing_doc->path)){
-                Storage::disk('public')->delete($existing_doc->path);
-                $existing_doc->delete();
-            }
-            $path = $file->store('customer', 'public');
-
-            $doc = new Document();
-            $doc->entity_type = Customer::class;
-            $doc->entity_id   = $customer->id;
-            $doc->project_id  = $data['project_id'] ?? null;
-            $doc->type        = $key . '-image';
-            $doc->file_name   = $file->getClientOriginalName();
-            $doc->file_path   = $path;
-            $doc->mime_type   = $file->getClientMimeType();
-            $doc->size        = $file->getSize();
-            $doc->uploaded_by = Auth::id();
-            $doc->save();
-            
-            if ($customer->hasAttribute($key)) {
-                $customer->{$key} = $doc->id;
-            }
-        }
-
-        $customer->save();
-
-        $this->logActivity($customer->id, 'updated', 'Customer updated');
-
-        // return redirect()->route('customers.index')
-        //     ->with('success', 'Customer updated');
-    }
-
-    /* ---------------------------------------------------------
-     | DELETE
-     --------------------------------------------------------- */
-    public function delete(Request $request)
-    {
-        $customer = Customer::find($request->id);
-
-        if (! $customer) {
-            return response()->json(['status' => false, 'message' => 'Not found'], 404);
-        }
-
-        $customer->delete();
-
-        $this->logActivity($request->id, 'deleted', 'Customer deleted');
-
-        return response()->json(['status' => true]);
-    }
-
-    /* ---------------------------------------------------------
-     | JSON VIEW (modal/details)
-     --------------------------------------------------------- */
-    public function viewJson($id)
-    {
-        $row = Customer::with(['notes.user', 'activities.user'])
-            ->findOrFail($id);
-
-        return response()->json($row);
-    }
-
-    /* ---------------------------------------------------------
-     | GLOBAL SEARCH API (for attach in leads/projects/invoice)
-     --------------------------------------------------------- */
-    public function searchApi(Request $request)
-    {
-        $q = trim($request->q);
-
-        if (strlen($q) < 2) {
-            return [];
-        }
-
-        return Customer::where(function ($x) use ($q) {
-                $x->where('name', 'like', "%{$q}%")
-                  ->orWhere('mobile', 'like', "%{$q}%")
-                  ->orWhere('email', 'like', "%{$q}%");
-            })
-            ->orderBy('name')
-            ->limit(15)
-            ->get()
-            ->map(function ($c) {
-                return [
-                    'id'      => $c->id,
-                    'text'    => "{$c->name} ({$c->mobile})",
-                    'name'    => $c->name,
-                    'email'   => $c->email,
-                    'mobile'  => $c->mobile,
-                    'address' => $c->address,
-                ];
-            });
-    }
-
-    /* ---------------------------------------------------------
-     | ADD NOTE (AJAX)
-     --------------------------------------------------------- */
-    public function addNote(Request $request, $id)
-    {
-        $request->validate(['note' => 'required|string']);
-
-        $note = CustomerNote::create([
-            'customer_id' => $id,
-            'user_id' => Auth::id(),
-            'note' => $request->note,
-        ]);
-
-        return response()->json(['status' => true, 'note' => $note]);
-    }
-
-    /* ---------------------------------------------------------
-     | ADD ACTIVITY (AJAX)
-     --------------------------------------------------------- */
-    public function addActivity(Request $request, $id)
-    {
-        $request->validate([
-            'action'  => 'required|string',
-            'message' => 'nullable|string',
-        ]);
-
-        $act = CustomerActivity::create([
-            'customer_id' => $id,
+        // activity log
+        CustomerActivity::create([
+            'customer_id' => $customer->id,
+            'action'      => 'customer_created',
+            'message'     => 'Customer profile created',
             'user_id'     => Auth::id(),
-            'action'      => $request->action,
-            'message'     => $request->message,
         ]);
 
-        return response()->json(['status' => true, 'activity' => $act]);
+        return response()->json([
+            'message' => 'Customer created successfully',
+            'id'      => $customer->id,
+        ]);
     }
-
-    /* ---------------------------------------------------------
-     | VALIDATION
-     --------------------------------------------------------- */
-    private function validatePayload(Request $request)
+    public function update(Request $request, Customer $customer)
     {
-        $rules = [
-            'name'             => 'required|string|max:255',
-            'email'            => 'nullable|email|max:255',
-            'mobile'           => 'nullable|string|max:255',
-            'alternate_mobile' => 'nullable|string|max:255',
-            'address'          => 'nullable|string',
-            'note'             => 'nullable|string',
-        ];
+        $data = $request->validate([
+            'name'               => 'required|string|max:255',
+            'mobile'             => 'required|string|max:20|unique:customers,mobile,' . $customer->id,
+            'email'              => 'nullable|email|unique:customers,email,' . $customer->id,
+            'alternate_mobile'   => 'nullable|string|max:20',
+            'address'            => 'nullable|string',
 
-        $v = Validator::make($request->all(), $rules);
-        if ($v->fails()) {
-            return [
-                'status' => false,
-                'errors' => $v->errors()
-            ];
-        }
-        return $request->all();
+            // identity
+            'aadhar_card_number' => 'nullable|string|max:255',
+            'pan_card_number'    => 'nullable|string|max:255',
+
+            // banking
+            'bank_name'          => 'nullable|string|max:255',
+            'ifsc_code'          => 'nullable|string|max:255',
+            'ac_holder_name'     => 'nullable|string|max:255',
+            'bank_account_number' => 'nullable|string|max:255',
+            'branch_name'        => 'nullable|string|max:255',
+        ]);
+
+        $customer->update($data);
+
+        CustomerActivity::create([
+            'customer_id' => $customer->id,
+            'action'      => 'customer_updated',
+            'message'     => 'Customer profile updated',
+            'user_id'     => Auth::id(),
+        ]);
+
+        return response()->json([
+            'message' => 'Customer updated successfully',
+        ]);
     }
-
-    /* ---------------------------------------------------------
-     | LOG ACTIVITY (every change)
-     --------------------------------------------------------- */
-    private function logActivity($customerId, $action, $message)
+    public function view(Customer $customer)
     {
-        try {
-            CustomerActivity::create([
-                'customer_id' => $customerId,
-                'user_id'     => Auth::id(),
-                'action'      => $action,
-                'message'     => $message,
-            ]);
-        } catch (\Throwable $e) {
-            // safe fail
-        }
+        $docs = Document::where('entity_type', Customer::class)
+            ->where('entity_id', $customer->id)
+            ->get()
+            ->keyBy('type');
+        return view('page.customers.view', compact('customer','docs'));
     }
 }

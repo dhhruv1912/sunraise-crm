@@ -12,6 +12,10 @@ class Settings extends Model
         'name', 'label', 'type', 'value', 'option', 'attr'
     ];
 
+    protected $casts = [
+        'option' => 'array'
+    ];
+
     public static function getTypes()
     {
         return [
@@ -25,18 +29,22 @@ class Settings extends Model
     {
         try {
             $options = [];
-            $rows = explode('||', str_replace("\n", ' ', $this->option));
+            $option = json_decode(($this->option),true);
+            // $rows = explode('||', str_replace("\n", ' ', $option));
 
-            foreach ($rows as $row) {
-                $pair = explode(':', trim($row));
+            // foreach ($rows as $row) {
+            //     $pair = explode(':', trim($row));
 
-                if (count($pair) == 2) {
-                    $options[$pair[0]] = $pair[1];
-                } else {
-                    $options[$pair[0]] = $pair[0];
-                }
+            //     if (count($pair) == 2) {
+            //         $options[$pair[0]] = $pair[1];
+            //     } else {
+            //         $options[$pair[0]] = $pair[0];
+            //     }
+            // }
+            if (is_array($option)) {
+                return $option;
             }
-            return $options;
+            return [];
 
         } catch (\Throwable $e) {
             return [];

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use App\Services\UserSettingSyncService;
 
 class AuthController extends Controller
 {
@@ -41,7 +42,7 @@ class AuthController extends Controller
 
             // If user has single company access set, store it; if multiple, go to company select
             $access = $user->company_access ?? [];
-
+            UserSettingSyncService::sync($user);
             if (count($access) === 1) {
                 session(['active_company' => $access[0]]);
                 return redirect()->intended(route('dashboard'));

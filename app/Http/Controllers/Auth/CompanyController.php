@@ -11,7 +11,8 @@ class CompanyController extends Controller
     public function choosePage()
     {
         $user = Auth::user();
-        $companies = $user->company_access ?? [];
+        // $companies = $user->company_access ?? [];
+        $companies = ['sunraise'];
         return view('auth.company-select', compact('companies'));
     }
 

@@ -2,147 +2,289 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Customer;
-use App\Models\Lead;
+use App\Mail\QuoteRequestMail;
 use App\Models\Project;
 use App\Models\QuoteMaster;
 use App\Models\QuoteRequest;
 use App\Models\QuoteRequestHistory;
-use App\Models\Settings;
 use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
+use App\Models\Lead;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Support\Facades\Mail;
+use App\Services\QuoteRequestService;
+use Illuminate\Support\Facades\Validator;
+use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Gate;
+use App\Imports\QuoteRequestImport;
 
 class QuoteRequestController extends Controller
 {
-    /**
-     * Status map used in UI
-     */
-    public static $STATUS = [
-        'new_request' => 'New Request',
-        'viewed' => 'Viewed',
-        'pending' => 'Pending',
-        'responded' => 'Responded',
-        'called' => 'Called',
-        'called_converted_to_lead' => 'Called & Converted to Lead',
-        'called_closed' => 'Called & Closed',
-    ];
-
-    /* ---------------------------------------------------------
-     | LIST PAGE (Blade)
-     --------------------------------------------------------- */
     public function index()
     {
-        return view('page.quote_requests.list', [
-            'users' => User::orderBy('fname')->get(['id', 'fname', 'lname']),
-            'statuses' => self::$STATUS,
+        return view('page.quote-request.index', [
+            'status' => QuoteRequest::STATUS_LABELS,
         ]);
     }
 
-    /* ---------------------------------------------------------
-     | AJAX LIST (table)
-     --------------------------------------------------------- */
+    public function create()
+    {
+        return view('page.quote-request.create', [
+            'users' => User::select('id','fname','lname')->get(),
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+
+        $data = Validator::make($request->all(), [
+            'name'   => 'required|string|max:255',
+            'mobile' => 'required|string|max:20',
+            'email'  => 'nullable|email',
+            'address'=> 'nullable|string',
+
+            'type'            => 'required|string',
+            'kw'              => 'required|numeric',
+            'budget'          => 'nullable|numeric',
+            'assigned_to'     => 'nullable|exists:users,id',
+            'notes'           => 'nullable|string',
+        ]);
+
+        if ($data->fails()) {
+            return response()->json([
+                'errors' => $data,
+            ]);
+        }
+
+        /* ================= CUSTOMER UPSERT ================= */
+        $customer = Customer::firstOrCreate(
+            ['mobile' => $request->mobile],
+            [
+                'name'    => $request->name,
+                'email'   => $request->email ?? null,
+                'address' => $request->address ?? null,
+            ]
+        );
+
+        /* ================= CREATE QUOTE REQUEST ================= */
+        QuoteRequestService::create([
+            'customer_id' => $customer->id,
+            'type'        => $request->type,
+            'kw'          => $request->kw,
+            'budget'      => $request->budget ?? null,
+            'assigned_to' => $request->assigned_to ?? null,
+            'notes'       => $request->notes ?? null,
+        ], Auth::id(), 'manual');
+
+        return response()->json([
+            'message' => 'Quote request created successfully',
+        ]);
+    }
+
+    /* ================= WIDGETS ================= */
+    public function ajaxWidgets()
+    {
+        $today = now()->toDateString();
+
+        $statusCounts = DB::table('quote_requests')
+            ->select('status', DB::raw('count(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $trend = DB::table('quote_requests')
+            ->select(
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('count(*) as total')
+            )
+            ->where('created_at', '>=', now()->subDays(30))
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+
+        $stale = DB::table('quote_requests')
+            ->whereIn('status', ['new_request', 'pending'])
+            ->where('created_at', '<=', now()->subDays(3))
+            ->count();
+
+        return view('page.quote-request.widgets', [
+            'total' => $statusCounts->sum(),
+            'new' => $statusCounts['new_request'] ?? 0,
+            'pending' => $statusCounts['pending'] ?? 0,
+            'responded' => $statusCounts['responded'] ?? 0,
+            'today' => DB::table('quote_requests')
+                ->whereDate('created_at', $today)
+                ->count(),
+            'statusCounts' => $statusCounts,
+            'trend' => $trend,
+            'stale' => $stale,
+        ]);
+    }
+
+    public function ajaxChartData()
+    {
+        /* ================= STATUS ================= */
+        $statusCounts = DB::table('quote_requests')
+            ->select('status', DB::raw('count(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $total = $statusCounts->sum();
+
+        /* ================= TREND ================= */
+        $trend = DB::table('quote_requests')
+            ->select(
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('count(*) as total')
+            )
+            ->where('created_at', '>=', now()->subDays(30))
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+
+        /* ================= WEEKDAY HEATMAP ================= */
+        $weekday = DB::table('quote_requests')
+            ->select(
+                DB::raw('DAYNAME(created_at) as day'),
+                DB::raw('count(*) as total')
+            )
+            ->groupBy('day')
+            ->pluck('total', 'day');
+
+        /* ================= RESPONSE TIME ================= */
+        $responseTime = DB::table('quote_requests')
+            ->whereNotNull('updated_at')
+            ->select(
+                'status',
+                DB::raw('AVG(TIMESTAMPDIFF(MINUTE, created_at, updated_at)) as avg_minutes')
+            )
+            ->groupBy('status')
+            ->pluck('avg_minutes', 'status');
+
+        /* ================= SLA ================= */
+        $slaLimit = 1440; // 24 hours
+        $slaBreached = DB::table('quote_requests')
+            ->whereIn('status', ['new_request', 'pending'])
+            ->whereRaw('TIMESTAMPDIFF(MINUTE, created_at, NOW()) > ?', [$slaLimit])
+            ->count();
+
+        return response()->json([
+            'total' => $total,
+            'status' => $statusCounts,
+            'trend' => $trend,
+            'weekday' => $weekday,
+            'response_time' => $responseTime,
+            'sla' => [
+                'limit' => $slaLimit,
+                'breach' => $slaBreached,
+            ],
+        ]);
+    }
+
+    /* ================= LIST ================= */
     public function ajaxList(Request $request)
     {
-        $perPage = (int) ($request->per_page ?? 20);
+        $page    = (int) $request->get('page', 1);
+        $perPage = (int) $request->get('per_page', 10);
+        $q = DB::table('quote_requests')
+            ->leftJoin('customers', 'customers.id', '=', 'quote_requests.customer_id')
+            ->select(
+                'quote_requests.*',
+                'customers.name as customer_name',
+                'customers.mobile'
+            );
 
-        $q = QuoteRequest::query()->with('customer');
+        if ($request->filled('status')) {
+            $q->where('quote_requests.status', $request->status);
+        }
+        if ($request->filled('type')) {
+            $q->where('quote_requests.type', $request->type);
+        }
 
-        if ($s = $request->search) {
-            $q->where(function ($x) use ($s) {
-                $x->where('name', 'like', "%$s%")
-                    ->orWhere('email', 'like', "%$s%")
-                    ->orWhere('number', 'like', "%$s%")
-                    ->orWhere('module', 'like', "%$s%");
+        if ($request->filled('search')) {
+            $q->where(function ($s) use ($request) {
+                $s->where('customers.name', 'like', '%'.$request->search.'%')
+                    ->orWhere('customers.mobile', 'like', '%'.$request->search.'%');
             });
         }
 
-        if ($request->filled('filter_type')) {
-            $q->where('type', $request->filter_type);
-        }
-        if ($request->filled('filter_status')) {
-            $q->where('status', $request->filter_status);
-        }
-        if ($request->filled('filter_name')) {
-            $q->where('name', 'like', "%{$request->filter_name}%");
-        }
-        if ($request->filled('filter_mobile')) {
-            $q->where('number', 'like', "%{$request->filter_mobile}%");
-        }
-        if ($request->filled('filter_module')) {
-            $q->where('module', 'like', "%{$request->filter_module}%");
-        }
-        if ($request->filled('filter_kw')) {
-            $q->where('kw', $request->filter_kw);
-        }
-        if ($request->filled('filter_assigned')) {
-            $q->where('assigned_to', $request->filter_assigned);
-        }
-        if ($request->filled('filter_from')) {
-            $q->whereDate('created_at', '>=', $request->filter_from);
-        }
-        if ($request->filled('filter_to')) {
-            $q->whereDate('created_at', '<=', $request->filter_to);
-        }
-
-        $data = $q->orderBy('id', 'desc')->paginate($perPage);
+        $total = (clone $q)->count();
+        $rows = $q->orderByDesc('quote_requests.created_at')
+        ->skip(($page - 1) * $perPage)
+        ->take($perPage)
+        ->get();
 
         return response()->json([
-            'pagination' => $data,
-            'data' => $data->items(),
-            'users' => User::select('id', 'fname', 'lname')->get(),
+            'data' => $rows,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page'     => $perPage,
+                'total'        => $total,
+                'last_page'    => (int) ceil($total / $perPage),
+            ],
+            "canEdit" => Gate::allows('quote.request.edit')
         ]);
     }
 
-    /* ---------------------------------------------------------
-     | VIEW WRAPPER PAGE (modal triggers AJAX)
-     --------------------------------------------------------- */
     public function view($id)
     {
+        /* ================= LOAD QUOTE REQUEST ================= */
         $qr = QuoteRequest::with([
             'customer',
             'assignedUser',
             'creator',
-            // 'quotations',
+            // 'quotations', // optional / future
             'quoteMaster',
             'history.user',
         ])->findOrFail($id);
+            // dd($qr);
+        /* ================= RELATED PROJECTS ================= */
         $projects = null;
         if ($qr->quoteMaster) {
-            $projects = Project::where('quote_master_id', $qr->quoteMaster->id)->limit(5)->get();
+            $projects = Project::where('quote_master_id', $qr->quoteMaster->id)
+                ->limit(5)
+                ->get();
         }
+        /* ================= STATUS TRANSITION ================= */
         if ($qr->status === 'new_request') {
+
             QuoteRequestHistory::create([
                 'quote_request_id' => $qr->id,
-                'action' => 'view ',
+                'action' => 'view',
                 'message' => 'Viewed Quote Request',
                 'user_id' => Auth::id(),
             ]);
+
             $qr->status = 'viewed';
             $qr->save();
+
         } elseif ($qr->status === 'viewed') {
+
             $qr->status = 'pending';
             $qr->save();
-
         }
 
-        // map history from eager-loaded relation (no duplicate query)
-        $history = $qr->history->sortByDesc('created_at')->map(function ($h) {
-            return [
-                'action' => $h->action,
-                'message' => $h->message,
-                'user' => optional($h->user)->fname.' '.optional($h->user)->lname,
-                'datetime' => optional($h->created_at)->format('d M Y h:i A'),
-            ];
-        })->values();
+        /* ================= HISTORY MAPPING ================= */
+        $history = $qr->history
+            ->sortByDesc('created_at')
+            ->map(function ($h) {
+                return [
+                    'action' => $h->action,
+                    'message' => $h->message,
+                    'user' => trim(
+                        optional($h->user)->fname.' '.optional($h->user)->lname
+                    ),
+                    'datetime' => optional($h->created_at)
+                        ? $h->created_at->format('d M Y h:i A')
+                        : null,
+                ];
+            })
+            ->values();
 
-        return view('page.quote_requests.view_wrapper', [
+        /* ================= RETURN VIEW ================= */
+        return view('page.quote-request.view', [
             'data' => $qr,
             'history' => $history,
             'master' => QuoteMaster::get(),
@@ -151,474 +293,140 @@ class QuoteRequestController extends Controller
         ]);
     }
 
-    /* ---------------------------------------------------------
-     | VIEW JSON (modal content)
-     --------------------------------------------------------- */
-    public function viewJson($id)
+    public function convertToLead($id)
     {
-        $qr = QuoteRequest::with([
-            'customer',
-            'assignedUser',
-            'creator',
-            'quotations',
-            'history.user', // load user inside history so no extra queries
-        ])->findOrFail($id);
+        $qr = QuoteRequest::with(['customer'])->findOrFail($id);
 
-        // map history from eager-loaded relation (no duplicate query)
-        $history = $qr->history->sortByDesc('created_at')->map(function ($h) {
-            return [
-                'action' => $h->action,
-                'message' => $h->message,
-                'user' => optional($h->user)->fname.' '.optional($h->user)->lname,
-                'datetime' => optional($h->created_at)->format('d M Y h:i A'),
-            ];
-        })->values(); // reset index
+        /* ================= HARD BUSINESS RULE ================= */
+        abort_if(
+            !$qr->quote_email_sent_at,
+            403,
+            'Quote email must be sent before converting to lead'
+        );
+
+        /* ================= PREVENT DUPLICATE ================= */
+        if ($qr->lead_id) {
+            return response()->json([
+                'message' => 'This quote request is already converted to a lead',
+            ], 409);
+        }
+
+        /* ================= CREATE LEAD ================= */
+        $lead = Lead::create([
+            'quote_request_id' => $qr->id,
+            'lead_code'        => 'LD-' . strtoupper(Str::random(6)),
+            'status'           => 'new',
+            'assigned_to'      => $qr->assigned_to,
+            'created_by'       => Auth::id(),
+            'customer_id'      => $qr->customer_id,
+            'remarks'          => 'Lead created from Quote Request',
+        ]);
+
+        /* ================= LINK BACK ================= */
+        $qr->lead_id = $lead->id;
+        $qr->status  = 'called_converted_to_lead';
+        $qr->save();
+
+        /* ================= HISTORY ================= */
+        QuoteRequestHistory::create([
+            'quote_request_id' => $qr->id,
+            'action'           => 'convert',
+            'message'          => 'Quote Request converted to Lead',
+            'user_id'          => Auth::id(),
+        ]);
 
         return response()->json([
-            'data' => $qr,
-            'history' => $history,
-            'master' => QuoteMaster::pluck('sku', 'id'),
-            'users' => User::select('id', 'fname', 'lname')->get(),
-        ]);
-
-    }
-
-    /* ---------------------------------------------------------
-     | CREATE FORM
-     --------------------------------------------------------- */
-    public function create()
-    {
-        return view('page.quote_requests.form', [
-            'modules' => json_decode(Settings::getValue('quote_module_list_fe'), true),
-            'statuses' => self::$STATUS,
-            'users' => User::select('id', 'fname', 'lname')->get(),
+            'message' => 'Quote Request converted to Lead successfully',
+            'lead_id' => $lead->id,
         ]);
     }
 
-    /* ---------------------------------------------------------
-     | STORE
-     --------------------------------------------------------- */
-    public function store(Request $request)
-    {
-        $customerId = null;
-        if ($request->filled('mobile') || $request->filled('email')) {
-            $customer = Customer::firstOrCreate(
-                ['mobile' => $request->number],
-                ['name' => $request->name ?? null, 'email' => $request->email ?? null]
-            );
-            $customerId = $customer->id;
-        }
-        $QM = QuoteMaster::where('kw', $request->kw)->where('module', $request->module)->first('id');
-        $qr = QuoteRequest::create([
-            'type' => $request->type,
-            'customer_id' => $customerId,
-            'module' => $request->module,
-            'kw' => $request->kw,
-            'mc' => $request->mc,
-            'budget' => $request->budget,
-            'status' => $request->status,
-            'assigned_to' => Auth::id(),
-            'quote_master_id' => $QM->id ?? null,
-            'created_by' => Auth::id(),
-            'notes' => $request->notes,
-            'source' => $request->source,
-            'ip' => $request->ip,
-            'location' => $request->location,
-        ]);
-        QuoteRequestHistory::create([
-            'quote_request_id' => $qr->id,
-            'action' => 'create',
-            'message' => 'Created new Request (Internal)',
-            'user_id' => Auth::id(),
-        ]);
-        // Auto actions
-        if ($this->autoMailEnabled()) {
-            QuoteRequestHistory::create([
-                'quote_request_id' => $qr->id,
-                'action' => 'create lead',
-                'message' => 'Created Lead from Request (Auto)',
-                'user_id' => null,
-            ]);
-            $this->createLeadIfMissing($qr);
-            QuoteRequestHistory::create([
-                'quote_request_id' => $qr->id,
-                'action' => 'send mail',
-                'message' => 'Sent Mail to Customer (Auto)',
-                'user_id' => null,
-            ]);
-            $this->safeSendMail($qr);
-        }
-
-        return redirect()->route('quote_requests.index')
-            ->with('success', 'Quote request saved.');
-    }
-
-    /* ---------------------------------------------------------
-     | EDIT FORM
-     --------------------------------------------------------- */
-    public function edit($id)
-    {
-        return view('page.quote_requests.form', [
-            'row' => QuoteRequest::findOrFail($id),
-            'statuses' => self::$STATUS,
-        ]);
-    }
-
-    /* ---------------------------------------------------------
-     | UPDATE
-     --------------------------------------------------------- */
-    public function update(Request $request, $id)
-    {
-        $payload = $this->validatePayload($request);
-
-        $quote = QuoteRequest::findOrFail($id);
-
-        // find changed fields only
-        $changes = [];
-        foreach ($payload as $key => $value) {
-            if ($value != $quote->$key) {
-                $changes[$key] = [
-                    'old' => $quote->$key,
-                    'new' => $value,
-                ];
-            }
-        }
-
-        // update main record
-        $quote->update($payload);
-
-        // create history for each changed field
-        foreach ($changes as $field => $change) {
-            QuoteRequestHistory::create([
-                'quote_request_id' => $id,
-                'action' => 'update',
-                'message' => "Field '{$field}' changed from '{$change['old']}' to '{$change['new']}'",
-                'user_id' => Auth::id(),
-            ]);
-        }
-
-        return redirect()->route('quote_requests.index')
-            ->with('success', 'Quote request updated.');
-    }
-
-    /* ---------------------------------------------------------
-     | DELETE (AJAX)
-     --------------------------------------------------------- */
-    public function delete(Request $request)
-    {
-        QuoteRequest::where('id', $request->id)->delete();
-        QuoteRequestHistory::create([
-            'quote_request_id' => $request->id,
-            'action' => 'delete',
-            'message' => 'Delete Quote Request ',
-            'user_id' => Auth::id(),
-        ]);
-        return response()->json(['status' => true, 'message' => 'Deleted']);
-    }
-
-    /* ---------------------------------------------------------
-     | EXPORT CSV
-     --------------------------------------------------------- */
-    public function export()
-    {
-        $fileName = 'quote_requests_'.now()->format('Ymd_His').'.csv';
-        $rows = QuoteRequest::orderBy('id', 'desc')->get()->toArray();
-
-        $columns = array_keys($rows[0] ?? []);
-
-        return new StreamedResponse(function () use ($rows, $columns) {
-            $h = fopen('php://output', 'w');
-            fputcsv($h, $columns);
-            foreach ($rows as $r) {
-                fputcsv($h, $r);
-            }
-            fclose($h);
-        }, 200, [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => "attachment; filename={$fileName}",
-        ]);
-    }
-
-    /* ---------------------------------------------------------
-     | IMPORT CSV
-     --------------------------------------------------------- */
-    public function import(Request $request)
-    {
-        if (! $request->hasFile('file')) {
-            return back()->with('error', 'Upload CSV file.');
-        }
-
-        $fp = fopen($request->file('file')->getRealPath(), 'r');
-        $header = fgetcsv($fp);
-
-        while ($row = fgetcsv($fp)) {
-            $data = array_combine($header, $row);
-
-            $payload = [
-                'type' => $data['type'] ?? null,
-                'name' => $data['name'] ?? null,
-                'number' => $data['number'] ?? null,
-                'email' => $data['email'] ?? null,
-                'module' => $data['module'] ?? null,
-                'kw' => $data['kw'] ?? null,
-                'mc' => $data['mc'] ?? null,
-                'status' => $data['status'] ?? 'new_request',
-            ];
-
-            $existing = QuoteRequest::where('number', $payload['number'])->first()
-                     ?: QuoteRequest::where('email', $payload['email'])->first();
-
-            $existing ? $existing->update($payload) : QuoteRequest::create($payload);
-        }
-
-        fclose($fp);
-
-        return back()->with('success', 'Import done.');
-    }
-
-    /* ---------------------------------------------------------
-     | UPDATE STATUS
-     --------------------------------------------------------- */
-    public function updateStatus(Request $request, $id)
+    public function assignUser(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required|string|in:'.implode(',', array_keys(self::$STATUS)),
+            'user_id' => 'nullable|exists:users,id',
         ]);
 
         $qr = QuoteRequest::findOrFail($id);
-        $old = $qr->status;
-        $new = $request->status;
-
-        if ($old === $new) {
-            return response()->json(['status' => true, 'message' => 'No change']);
-        }
-
-        $qr->update(['status' => $new]);
-        QuoteRequestHistory::create([
-            'quote_request_id' => $qr->id,
-            'action' => 'update_status',
-            'message' => 'Change Quote status from '.$old.' to '.$new,
-            'user_id' => Auth::id(),
-        ]);
-        // auto create lead & send mail
-        // if (in_array($new, ['responded', 'called_converted_to_lead'])) {
-        //     $this->createLeadIfMissing($qr);
-
-        //     if ($this->autoMailEnabled()) {
-        //         $this->safeSendMail($qr);
-        //     }
-        // }
-
-        return response()->json(['status' => true, 'message' => 'Status updated']);
-    }
-
-    public function updateQuoteMaster(Request $request, $id)
-    {
-        $request->validate([
-            'quote_master_id' => 'required',
-        ]);
-
-        $qr = QuoteRequest::findOrFail($id);
-        $old = $qr->quote_master_id;
-        $new = $request->quote_master_id;
-        // dd($qr,$new);
-        if ($old === $new) {
-            return response()->json(['status' => true, 'message' => 'No change']);
-        }
-
-        $qr->update(['quote_master_id' => $new]);
-        QuoteRequestHistory::create([
-            'quote_request_id' => $qr->id,
-            'action' => 'quote_master',
-            'message' => 'Change Quote Master ID from '.$old.' to '.$new,
-            'user_id' => Auth::id(),
-        ]);
-
-        return response()->json(['status' => true, 'message' => 'Status updated']);
-    }
-
-    /* ---------------------------------------------------------
-     | ASSIGN
-     --------------------------------------------------------- */
-    public function assign(Request $request, $id)
-    {
-        $request->validate(['assigned_to' => 'nullable|exists:users,id']);
-
-        $qr = QuoteRequest::findOrFail($id);
-        $qr->assigned_to = $request->assigned_to;
+        $qr->assigned_to = $request->user_id;
         $qr->save();
 
         QuoteRequestHistory::create([
             'quote_request_id' => $qr->id,
             'action' => 'assign',
-            'message' => 'Assigned to user ID '.$request->assigned_to,
+            'message' => 'Assigned to user',
             'user_id' => Auth::id(),
         ]);
 
-        return response()->json(['status' => true, 'message' => 'Assigned']);
+        return response()->json([
+            'message' => 'User assigned successfully',
+        ]);
     }
 
-    /* ---------------------------------------------------------
-     | SEND MAIL (Manual)
-     --------------------------------------------------------- */
-    public function sendMail(Request $request, $id)
+    public function sendQuoteEmail($id)
     {
-        $qr = QuoteRequest::with('customer')->findOrFail($id);
-        // try {
-        $this->sendMailNow($qr);
+        $qr = QuoteRequest::with(['customer', 'quoteMaster'])->findOrFail($id);
+
+        abort_if(!$qr->customer || !$qr->customer->email, 400, 'Customer email missing');
+
+        $projects = Project::where('status', 'complete')
+            ->latest()
+            ->limit(5)
+            ->get();
+
+        Mail::to($qr->customer->email)
+            ->send(new QuoteRequestMail($qr, $projects));
+
+        // 🔐 MARK EMAIL SENT
+        $qr->quote_email_sent_at = now();
+        $qr->save();
+
         QuoteRequestHistory::create([
             'quote_request_id' => $qr->id,
-            'action' => 'send mail',
-            'message' => "Mail Sent to Customer",
+            'action' => 'email',
+            'message' => 'Quote email sent to customer',
             'user_id' => Auth::id(),
         ]);
-        return response()->json(['status' => true, 'message' => 'Mail sent']);
-        // } catch (\Throwable $e) {
-        //     Log::error($e);
 
-        //     return response()->json(['status' => false, 'message' => 'Mail failed'], 500);
-        // }
+        return response()->json([
+            'message' => 'Quote email sent successfully',
+        ]);
     }
 
-    /* ---------------------------------------------------------
-     | VALIDATION
-     --------------------------------------------------------- */
-    protected function validatePayload(Request $request)
-    {
-        $rules = [
-            'type' => 'nullable|string|in:quote,call',
-            'name' => 'required|string',
-            'number' => 'nullable|string',
-            'email' => 'nullable|email',
-            'module' => 'nullable|string',
-            'kw' => 'nullable|numeric',
-            'mc' => 'nullable|integer',
-            'status' => 'nullable|string',
-            'assigned_to' => 'nullable|exists:users,id',
-            'notes' => 'nullable|string',
-            'source' => 'nullable|string',
-        ];
 
-        $v = Validator::make($request->all(), $rules);
-        if ($v->fails()) {
-            return response()->json([
-                'status' => false,
-                'errors' => $v->errors(),
-            ], 422);
-        }
+    /* ================= UPDATE QUOTE MASTER ================= */
+    public function updateQuoteMaster(Request $request, $id)
+    {
+        $request->validate([
+            'quote_master_id' => 'required|exists:quote_master,id',
+        ]);
+
+        $qr = QuoteRequest::findOrFail($id);
+        $qr->quote_master_id = $request->quote_master_id;
+        $qr->save();
+
+        QuoteRequestHistory::create([
+            'quote_request_id' => $qr->id,
+            'action' => 'quote_master',
+            'message' => 'Quote master updated',
+            'user_id' => Auth::id(),
+        ]);
+
+        return response()->json([
+            'message' => 'Quote master updated successfully',
+        ]);
     }
 
-    /* ---------------------------------------------------------
-     | CREATE LEAD (idempotent)
-     --------------------------------------------------------- */
-    public function createLeadIfMissing($id)
+    public function import(Request $request)
     {
-        try {
-            $qr = QuoteRequest::findOrFail($id);
-            if ($lead = Lead::where('quote_request_id', $qr->id)->first()) {
-                return $lead;
-            }
-            if (in_array($qr->status, ['new_request', 'viewed', 'pending', 'responded','called'])) {
-                $qr->status = 'called_converted_to_lead';
-                $qr->save();
-            }
-            QuoteRequestHistory::create([
-                'quote_request_id' => $qr->id,
-                'action' => 'create lead',
-                'message' => "Created New Lead from Quote Request (Manual)",
-                'user_id' => Auth::id(),
-            ]);
-            return Lead::create([
-                'quote_request_id' => $qr->id,
-                'customer_id' => $qr->customer_id,
-                'lead_code' => 'LD-'.now()->format('Ymd').'-'.Str::upper(Str::random(4)),
-                'assigned_to' => $qr->assigned_to,
-                'status' => 'new',
-                'remarks' => 'Auto-created from Quote Request #'.$qr->id,
-                'created_by' => Auth::id(),
-            ]);
-        } catch (\Throwable $th) {
-            $qr->status = 'pending';
-            $qr->save();
-        }
-    }
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,csv'
+        ]);
 
-    /* ---------------------------------------------------------
-     | SETTINGS: Auto mail?
-     --------------------------------------------------------- */
-    protected function autoMailEnabled()
-    {
-        $row = Settings::where('name', 'send_auto_response')->first();
-        if (! $row) {
-            return false;
-        }
+        Excel::import(new QuoteRequestImport(Auth::id()), $request->file('file'));
 
-        return in_array(strtolower(trim($row->value)), ['1', 'yes', 'true', 'on']);
-    }
-
-    /* ---------------------------------------------------------
-     | SEND QUOTATION MAIL (safe wrapper)
-     --------------------------------------------------------- */
-    protected function safeSendMail(QuoteRequest $qr)
-    {
-        try {
-            return $this->sendMailNow($qr);
-        } catch (\Throwable $e) {
-            Log::warning("Mail failed for QR {$qr->id}: ".$e->getMessage());
-
-            return false;
-        }
-    }
-
-    /* ---------------------------------------------------------
-     | SEND QUOTATION MAIL + PDF
-     --------------------------------------------------------- */
-    protected function sendMailNow(QuoteRequest $qr)
-    {
-        if (! $qr->customer->email) {
-            return false;
-        }
-
-        $projects = Project::where('status', 'complete')->latest()->limit(5)->get();
-        $lead = Lead::where('quote_request_id', $qr->id)->first();
-
-        $data = compact('qr', 'projects', 'lead');
-
-        // PDF generation
-        $fileName = "quote_{$qr->id}_".date('Ymd_His').'.pdf';
-        $path = storage_path("app/public/quotes/$fileName");
-
-        try {
-            if (! is_dir(dirname($path))) {
-                mkdir(dirname($path), 0755, true);
-            }
-            Pdf::loadView('emails.quote_sent_pdf', [
-                'request' => $qr,
-                'projects' => $projects,
-                'lead' => $lead,
-            ])->save($path);
-        } catch (\Throwable $e) {
-            $path = null; // continue mail without PDF
-        }
-
-        // Mail
-        Mail::send('emails.quote_sent', [
-            'request' => $qr,
-            'projects' => $projects,
-            'lead' => $lead,
-        ], function ($m) use ($qr, $path) {
-            $m->to($qr->customer->email, $qr->customer->name)->subject('Your Quotation');
-
-            if ($path && file_exists($path)) {
-                $m->attach($path);
-            }
-        });
-
-        if (in_array($qr->status, ['new_request', 'viewed', 'pending'])) {
-            $qr->status = 'responded';
-            $qr->save();
-        }
-
-        return true;
+        return response()->json([
+            'message' => 'Quote requests imported successfully'
+        ]);
     }
 }

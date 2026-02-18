@@ -2,300 +2,219 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Quotation;
 use App\Models\Lead;
-use App\Models\QuoteRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
+use App\Models\Project;
+use App\Models\Quotation;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
-use Symfony\Component\HttpFoundation\StreamedResponse;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 
 class QuotationController extends Controller
 {
-    /* ---------------------------------------------------------
-     | MAIN LIST PAGE
-     --------------------------------------------------------- */
-    public function index($id="")
+    public function index()
     {
-        return view('page.quotations.list',compact('id'));
+        return view('page.quotations.index');
     }
 
-    /* ---------------------------------------------------------
-     | AJAX LIST (pagination)
-     --------------------------------------------------------- */
-    public function ajaxList(Request $request,$id=null)
+    /* ================= LIST ================= */
+    public function ajaxList(Request $request)
     {
-        $perPage = (int)($request->per_page ?? 20);
+        $page    = (int) $request->get('page', 1);
+        $perPage = (int) $request->get('per_page', 10);
 
-        $query = Quotation::with(['lead.customer', 'sentBy']);
-        if($id){
-            $query = $query->where('id',$id);
-        }
-        if ($search = $request->search) {
-            $query->where('quotation_no', 'like', "%$search%")
-                  ->orWhere('meta->sku', 'like', "%$search%")
-                  ->orWhereHas('lead', function ($ld) use ($search) {
-                      $ld->where('name', 'like', "%$search%")
-                         ->orWhere('email', 'like', "%$search%")
-                         ->orWhere('number', 'like', "%$search%");
-                  });
-        }
+        $q = Quotation::with([
+                'lead.customer',
+                'sentBy',
+                'lead.quoteMaster',
+            ])
+            ->latest();
 
-        return response()->json(
-            $query->orderBy('id', 'desc')->paginate($perPage)
-        );
-    }
+        /* ---------- FILTERS ---------- */
 
-    /* ---------------------------------------------------------
-     | CREATE FORM
-     --------------------------------------------------------- */
-    public function create()
-    {
-        return view('page.quotations.form', [
-            'leads' => Lead::with('customer')->latest()->limit(200)->get()
-        ]);
-    }
+        if ($request->status) {
+            if ($request->status === 'sent') {
+                $q->whereNotNull('sent_at');
+            }
 
-    /* ---------------------------------------------------------
-     | STORE NEW QUOTATION
-     --------------------------------------------------------- */
-    public function store(Request $request)
-    {
-        if ($request->has('meta') && is_string($request->meta)) {
-            $request->merge([
-                'meta' => json_decode($request->meta, true)
-            ]);
+            if ($request->status === 'draft') {
+                $q->whereNull('sent_at');
+            }
         }
 
-        $rules = [
-            // 'quote_request_id' => 'nullable|exists:quote_requests,id',
-            'lead_id' => 'nullable|exists:leads,id',
-            'base_price'       => 'required|numeric',
-            'discount'         => 'nullable|numeric',
-            'final_price'      => 'nullable|numeric',
-            'meta'             => 'nullable|array'
-        ];
-
-        $v = Validator::make($request->all(), $rules);
-        if ($v->fails()) {
-            return response()->json([
-                'status' => false,
-                'errors' => $v->errors()
-            ], 422);
+        if ($request->search) {
+            $s = $request->search;
+            $q->whereHas('lead.customer', function ($c) use ($s) {
+                $c->where('name', 'like', "%{$s}%")
+                ->orWhere('mobile', 'like', "%{$s}%");
+            });
         }
 
+        /* ---------- PAGINATION ---------- */
 
-        $quotation = new Quotation($request->toArray());
+        $total = (clone $q)->count();
 
-        $quotation->quotation_no = $this->generateQuotationNo();
-        $quotation->sent_by      = null;
-        $quotation->final_price  = $request['final_price']
-                                   ?? ($request['base_price'] - ($request['discount'] ?? 0));
-        $quotation->meta         = $request['meta'] ?? [];
-
-        $quotation->save();
-
-        return redirect()->route('quotations.index')->with('success', 'Quotation created.');
-    }
-
-    /* ---------------------------------------------------------
-     | EDIT FORM
-     --------------------------------------------------------- */
-    public function edit($id)
-    {
-        return view('page.quotations.form', [
-            'quotation'     => Quotation::findOrFail($id),
-            'quoteRequests' => QuoteRequest::latest()->limit(200)->get(),
-        ]);
-    }
-
-    /* ---------------------------------------------------------
-     | UPDATE QUOTATION
-     --------------------------------------------------------- */
-    public function update(Request $request, $id)
-    {
-        $quotation = Quotation::findOrFail($id);
-
-        $validated = $request->validate([
-            'lead_id' => 'nullable|exists:leads,id',
-            // 'quote_request_id' => 'nullable|exists:quote_requests,id',
-            'base_price'       => 'required|numeric',
-            'discount'         => 'nullable|numeric',
-            'final_price'      => 'nullable|numeric',
-            'meta'             => 'nullable|array'
-        ]);
-
-        $quotation->fill($validated);
-        $quotation->final_price = $validated['final_price']
-                                  ?? ($validated['base_price'] - ($validated['discount'] ?? 0));
-        $quotation->meta        = $validated['meta'] ?? $quotation->meta;
-        $quotation->save();
-
-        return redirect()->route('quotations.index')->with('success', 'Quotation updated.');
-    }
-
-    /* ---------------------------------------------------------
-     | DELETE (AJAX)
-     --------------------------------------------------------- */
-    public function destroy(Request $request, $id)
-    {
-        $q = Quotation::findOrFail($id);
-
-        if ($q->pdf_path) {
-            Storage::disk('public')->delete($q->pdf_path);
-        }
-
-        $q->delete();
-
-        return response()->json(['status' => true, 'message' => 'Deleted']);
-    }
-
-    /* ---------------------------------------------------------
-     | GENERATE PDF + SAVE PATH
-     --------------------------------------------------------- */
-    public function generatePdf($id)
-    {
-        $q = Quotation::with('lead.customer','quoteMaster','lead')->findOrFail($id);
-        $pdf = Pdf::loadView('emails.quote_sent_pdf', [
-            'quotation' => $q,
-            'lead'   => $q->lead,
-            'master'   => $q->quoteMaster,
-            'company'   => [
-                "COMPANY_NAME" => env("COMPANY_NAME"),
-                "COMPANY_NUMBER" => env("COMPANY_NUMBER"),
-                "COMPANY_EMAIL" => env("COMPANY_EMAIL"),
-                "COMPANY_GST" => env("COMPANY_GST"),
-                "COMPANY_ADDRESS" => env("COMPANY_ADDRESS"),
-            ],
-        ]);
-
-        $file = "quote_" . $q->id . "_" . now()->format('Ymd_His') . ".pdf";
-        $path = "quotes/" . $file;
-
-        Storage::disk('public')->put($path, $pdf->output());
-        // $url = Storage::disk('public')->url($path);
-        $q->pdf_path = $path;
-        $q->save();
-
-        return response()->json([
-            'status'   => true,
-            'message'  => 'PDF generated',
-            // 'pdf_url'  => $url
-            'pdf_url'  => asset('storage/' . $path)
-        ]);
-    }
-
-    /* ---------------------------------------------------------
-     | DOWNLOAD PDF DIRECTLY
-     --------------------------------------------------------- */
-    public function downloadPdf($id)
-    {
-        $q = Quotation::findOrFail($id);
-
-        if (!$q->pdf_path || !Storage::disk('public')->exists($q->pdf_path)) {
-            abort(404, 'PDF not found. Please generate again.');
-        }
-
-        return response()->download(storage_path("app/public/" . $q->pdf_path));
-    }
-
-    /* ---------------------------------------------------------
-     | SEND EMAIL WITH PDF
-     --------------------------------------------------------- */
-    public function sendEmail(Request $request, $id)
-    {
-        $q = Quotation::with('lead.customer')->findOrFail($id);
-        $qr = $q->lead;
-
-        if (!$qr || !$qr->customer->email) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Customer email not available.'
-            ], 422);
-        }
-
-        // If PDF missing → generate
-        if (!$q->pdf_path || !Storage::disk('public')->exists($q->pdf_path)) {
-            $this->generatePdf($id);
-            $q->refresh();
-        }
-
-        $pdfPath = storage_path("app/public/" . $q->pdf_path);
-
-        Mail::send('emails.quotation_sent', [
-            'quotation' => $q,
-            'request'   => $qr
-        ], function ($m) use ($qr, $q, $pdfPath) {
-            $m->to($qr->customer->email, $qr->customer->name)
-              ->subject("Quotation {$q->quotation_no} - " . config('app.name'))
-              ->attach($pdfPath);
-        });
-
-        $q->sent_at = now();
-        $q->sent_by = Auth::id();
-        $q->save();
-
-        return response()->json([
-            'status'  => true,
-            'message' => 'Email sent successfully'
-        ]);
-    }
-
-    /* ---------------------------------------------------------
-     | EXPORT CSV
-     --------------------------------------------------------- */
-    public function export()
-    {
-        $rows = Quotation::with('lead.customer')
-            ->latest()
+        $rows = $q
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
             ->get()
             ->map(function ($q) {
                 return [
-                    'id'            => $q->id,
-                    'quotation_no'  => $q->quotation_no,
-                    'request_id'    => $q->quote_request_id,
-                    'customer'      => optional($q->lead->customer)->name,
-                    'email'         => optional($q->lead->customer)->email,
-                    'base_price'    => $q->base_price,
-                    'discount'      => $q->discount,
-                    'final_price'   => $q->final_price,
-                    'sent_at'       => $q->sent_at,
+                    'id'           => $q->id,
+                    'quotation_no' => $q->quotation_no,
+                    'customer'     => optional($q->lead->customer)->name,
+                    'mobile'       => optional($q->lead->customer)->mobile,
+                    'price'        => $q->final_price,
+                    'sent'         => (bool) $q->sent_at,
+                    'sku'          => $q->lead->quoteMaster->sku ?? '',
+                    'lead_code'    => $q->lead->lead_code,
+                    'sent_at'      => optional($q->sent_at)?->format('d M Y'),
                 ];
-            })
-            ->toArray();
+            });
 
-        $columns = array_keys($rows[0] ?? [
-            'id','quotation_no','request_id','customer','email','final_price','sent_at'
+        return response()->json([
+            'data' => $rows,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page'     => $perPage,
+                'total'        => $total,
+                'last_page'    => (int) ceil($total / $perPage),
+            ]
         ]);
-
-        $fileName = "quotations_export_" . now()->format('Ymd_His') . ".csv";
-
-        $response = new StreamedResponse(function () use ($rows, $columns) {
-            $handle = fopen("php://output", "w");
-            fputcsv($handle, $columns);
-
-            foreach ($rows as $row) {
-                fputcsv($handle, $row);
-            }
-
-            fclose($handle);
-        });
-
-        $response->headers->set('Content-Type', 'text/csv');
-        $response->headers->set('Content-Disposition', "attachment; filename={$fileName}");
-
-        return $response;
     }
 
-    /* ---------------------------------------------------------
-     | QUOTATION NUMBER GENERATOR
-     --------------------------------------------------------- */
-    protected function generateQuotationNo()
+
+    /* ================= WIDGETS ================= */
+    public function ajaxWidgets()
     {
-        return "Q-" . now()->format('Ymd') . "-" . strtoupper(Str::random(4));
+        return view('page.quotations.widgets', [
+            'total' => Quotation::count(),
+            'sent' => Quotation::whereNotNull('sent_at')->count(),
+            'draft' => Quotation::whereNull('sent_at')->count(),
+            'value' => Quotation::sum('final_price'),
+        ]);
+    }
+
+    public function view(Quotation $quotation)
+    {
+        $quotation->load([
+            'lead.customer',
+            'lead.quoteRequest',
+            'sentBy',
+        ]);
+
+        return view('page.quotations.view', [
+            'data' => $quotation,
+        ]);
+    }
+
+    public function create(Lead $lead)
+    {
+        $lead->load([
+            'customer',
+            'quoteRequest',
+            'quoteMaster',
+        ]);
+
+        return view('page.quotations.create', [
+            'lead' => $lead,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'lead_id' => 'required|exists:leads,id',
+            'base_price' => 'required|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0',
+            'final_price' => 'required|numeric|min:0',
+        ]);
+
+        $quotation = Quotation::create([
+            'quotation_no' => Quotation::generateNumber(),
+            'lead_id' => $request->lead_id,
+            'base_price' => $request->base_price,
+            'discount' => $request->discount ?? 0,
+            'final_price' => $request->final_price,
+            'created_by' => Auth::id(),
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Quotation created successfully',
+            'redirect' => route('quotations.view.show', $quotation->id),
+        ]);
+    }
+
+    public function generatePdf(Quotation $quotation)
+    {
+        $quotation->load([
+            'lead.customer',
+            'lead.quoteRequest',
+            'lead.quoteMaster',
+        ]);
+
+        // File name
+        $fileName = 'quotation_'.$quotation->quotation_no.'.pdf';
+        $path = 'quotations/'.$fileName;
+        // dd($quotation->toArray());
+        // Generate PDF
+        $pdf = Pdf::loadView(
+            'pdf.quotation',
+            ['data' => $quotation]
+        )->setPaper('A4', 'portrait');
+
+        Storage::disk('public')->put($path, $pdf->output());
+
+        // Save path
+        $quotation->pdf_path = $path;
+        $quotation->save();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'PDF generated successfully',
+            'pdf_url' => asset('storage/'.$path),
+        ]);
+    }
+
+    public function sendEmail(Quotation $quotation)
+    {
+        if (! $quotation->pdf_path) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Generate PDF before sending email',
+            ], 422);
+        }
+
+        $lead = $quotation->lead;
+        $customer = $lead->customer;
+
+        $recentProjects = Project::where('status', 'complete')
+            ->latest()
+            ->limit(5)
+            ->get();
+        Mail::send(
+            'emails.quotation',
+            compact('quotation', 'lead', 'customer', 'recentProjects'),
+            function ($mail) use ($quotation, $customer) {
+                $mail->to($customer->email, $customer->name)
+                    ->subject('Your Solar Quotation - '.config('app.name'))
+                    ->attach(
+                        storage_path('app/public/'.$quotation->pdf_path),
+                        ['as' => 'Solar-Quotation.pdf']
+                    );
+            }
+        );
+
+        $quotation->update([
+            'sent_at' => now(),
+            'sent_by' => Auth::id(),
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Quotation email sent successfully',
+        ]);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -61,7 +62,8 @@ class Project extends Model
         'actual_complete_date' => 'date',
         'invoice_date' => 'date',
         'emi' => 'array',
-        'next_step' => 'array'
+        'next_step' => 'array',
+        'meta' => 'array'
     ];
 
     protected $with = []; //'quoteRequest','quoteMaster'
@@ -123,6 +125,34 @@ class Project extends Model
         return self::BADGES[$this->status] ?? 'secondary';
     }
 
+    public static function generateCode(): string
+    {
+        $now = Carbon::now();
+
+        $prefix = 'PRJ';
+        $yearMonth = $now->format('ym'); // 2509
+
+        // Find last project of current month
+        $lastCode = self::where('project_code', 'like', "{$prefix}-{$yearMonth}-%")
+            ->orderByDesc('id')
+            ->value('project_code');
+
+        if ($lastCode) {
+            // Extract last number
+            $lastNumber = (int) substr($lastCode, -4);
+            $nextNumber = $lastNumber + 1;
+        } else {
+            $nextNumber = 1;
+        }
+
+        return sprintf(
+            '%s-%s-%04d',
+            $prefix,
+            $yearMonth,
+            $nextNumber
+        );
+    }
+    
     /*----------------------------------------
      | Relationships
      ----------------------------------------*/
