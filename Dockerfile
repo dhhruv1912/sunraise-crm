@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y \
     git unzip libpng-dev libzip-dev zip
 
 # Enable required PHP extensions
-RUN docker-php-ext-install gd zip
+RUN docker-php-ext-install gd zip pdo pdo_mysql
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
